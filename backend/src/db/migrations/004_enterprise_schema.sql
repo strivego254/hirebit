@@ -16,30 +16,9 @@ UPDATE job_postings SET meeting_link = interview_meeting_link WHERE meeting_link
 -- Convert skills_required from text[] to jsonb if needed (keep both for compatibility)
 -- We'll handle this in application code
 
--- Candidates table
-CREATE TABLE IF NOT EXISTS candidates (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_posting_id uuid NOT NULL REFERENCES job_postings(job_posting_id) ON DELETE CASCADE,
-  company_id uuid NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
-  candidate_name text,
-  email text NOT NULL,
-  cv_url text,
-  score numeric,
-  status text CHECK (status IN ('SHORTLIST', 'FLAGGED', 'REJECTED')),
-  parsedlinkedin text,
-  parsedgithub text,
-  parsedemail text,
-  reasoning text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(job_posting_id, email)
-);
-
-CREATE INDEX IF NOT EXISTS idx_candidates_job ON candidates(job_posting_id);
-CREATE INDEX IF NOT EXISTS idx_candidates_company ON candidates(company_id);
-CREATE INDEX IF NOT EXISTS idx_candidates_status ON candidates(status);
-CREATE INDEX IF NOT EXISTS idx_candidates_score ON candidates(score DESC NULLS LAST);
-CREATE INDEX IF NOT EXISTS idx_candidates_email ON candidates(email);
+-- Note: We use the 'applications' table from schema.sql, not a separate 'candidates' table
+-- Applications table already has: application_id, job_posting_id, company_id, candidate_name, 
+-- email, resume_url, parsed_resume_json, ai_score, ai_status, reasoning, etc.
 
 -- Reports table
 CREATE TABLE IF NOT EXISTS reports (
@@ -54,12 +33,8 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE INDEX IF NOT EXISTS idx_reports_job ON reports(job_posting_id);
 CREATE INDEX IF NOT EXISTS idx_reports_company ON reports(company_id);
 
--- Interview scheduling fields (add to candidates if not exists)
-ALTER TABLE candidates 
-ADD COLUMN IF NOT EXISTS interview_date_time timestamptz,
-ADD COLUMN IF NOT EXISTS interview_link text;
-
-CREATE INDEX IF NOT EXISTS idx_candidates_interview_time ON candidates(interview_date_time) WHERE interview_date_time IS NOT NULL;
+-- Interview scheduling fields are already added to applications table via migration 002_interview_fields.sql
+-- (interview_time, interview_link, interview_status)
 
 -- Audit logs for tracking (update if exists)
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -67,7 +42,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   action text NOT NULL,
   company_id uuid REFERENCES companies(company_id),
   job_posting_id uuid REFERENCES job_postings(job_posting_id),
-  candidate_id uuid REFERENCES candidates(id),
+  candidate_id uuid REFERENCES applications(application_id),
   metadata jsonb DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );

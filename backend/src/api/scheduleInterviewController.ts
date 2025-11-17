@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express'
-import { CandidateRepository } from '../repositories/candidateRepository.js'
+import { ApplicationRepository } from '../repositories/applicationRepository.js'
 import { JobPostingRepository } from '../repositories/jobPostingRepository.js'
 import { CompanyRepository } from '../repositories/companyRepository.js'
 import { EmailService } from '../services/emailService.js'
@@ -7,8 +7,8 @@ import { logger } from '../utils/logger.js'
 import { z } from 'zod'
 
 const scheduleSchema = z.object({
-  candidate_id: z.string().uuid(),
-  interview_date_time: z.string().datetime()
+  applicantId: z.string().uuid(),
+  interviewTime: z.string().datetime()
 })
 
 export async function scheduleInterview(req: Request, res: Response) {
@@ -21,21 +21,26 @@ export async function scheduleInterview(req: Request, res: Response) {
       })
     }
 
-    const { candidate_id, interview_date_time } = validation.data
+    const { applicantId, interviewTime } = validation.data
 
-    const candidateRepo = new CandidateRepository()
+    const applicationRepo = new ApplicationRepository()
     const jobPostingRepo = new JobPostingRepository()
     const companyRepo = new CompanyRepository()
     const emailService = new EmailService()
 
-    // Get candidate
-    const candidate = await candidateRepo.findById(candidate_id)
-    if (!candidate) {
-      return res.status(404).json({ error: 'Candidate not found' })
+    // Get application
+    const application = await applicationRepo.findById(applicantId)
+    if (!application) {
+      return res.status(404).json({ error: 'Application not found' })
+    }
+
+    // Check if already shortlisted
+    if (application.ai_status !== 'SHORTLIST') {
+      return res.status(400).json({ error: 'Only shortlisted candidates can be scheduled for interviews' })
     }
 
     // Get job posting
-    const job = await jobPostingRepo.findById(candidate.job_posting_id)
+    const job = await jobPostingRepo.findById(application.job_posting_id)
     if (!job) {
       return res.status(404).json({ error: 'Job posting not found' })
     }
@@ -45,20 +50,24 @@ export async function scheduleInterview(req: Request, res: Response) {
     }
 
     // Get company
-    const company = await companyRepo.findById(candidate.company_id)
+    const companyId = application.company_id
+    if (!companyId) {
+      return res.status(404).json({ error: 'Company not found for this application' })
+    }
+    const company = await companyRepo.findById(companyId)
     if (!company) {
       return res.status(404).json({ error: 'Company not found' })
     }
 
     // Schedule interview
-    const updated = await candidateRepo.scheduleInterview({
-      id: candidate_id,
-      interview_date_time,
+    const updated = await applicationRepo.scheduleInterview({
+      application_id: applicantId,
+      interview_time: interviewTime,
       interview_link: job.meeting_link
     })
 
     // Send emails
-    const interviewDate = new Date(interview_date_time).toLocaleString('en-US', {
+    const interviewDate = new Date(interviewTime).toLocaleString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -69,11 +78,11 @@ export async function scheduleInterview(req: Request, res: Response) {
 
     // Email candidate
     await emailService.sendEmail({
-      to: candidate.email,
+      to: application.email,
       subject: `Interview Scheduled - ${job.job_title}`,
       html: `
         <h2>Interview Scheduled</h2>
-        <p>Hi ${candidate.candidate_name || 'Candidate'},</p>
+        <p>Hi ${application.candidate_name || 'Candidate'},</p>
         <p>Your interview for <strong>${job.job_title}</strong> has been scheduled.</p>
         <p><strong>Date & Time:</strong> ${interviewDate}</p>
         <p><strong>Meeting Link:</strong> <a href="${job.meeting_link}">${job.meeting_link}</a></p>
@@ -82,7 +91,7 @@ export async function scheduleInterview(req: Request, res: Response) {
       text: `
 Interview Scheduled
 
-Hi ${candidate.candidate_name || 'Candidate'},
+Hi ${application.candidate_name || 'Candidate'},
 
 Your interview for ${job.job_title} has been scheduled.
 
@@ -97,11 +106,11 @@ ${company.company_name} Team
     // Email HR
     await emailService.sendEmail({
       to: company.hr_email,
-      subject: `Interview Scheduled - ${candidate.candidate_name} for ${job.job_title}`,
+      subject: `Interview Scheduled - ${application.candidate_name} for ${job.job_title}`,
       html: `
         <h2>Interview Scheduled</h2>
         <p>An interview has been scheduled:</p>
-        <p><strong>Candidate:</strong> ${candidate.candidate_name} (${candidate.email})</p>
+        <p><strong>Candidate:</strong> ${application.candidate_name} (${application.email})</p>
         <p><strong>Job:</strong> ${job.job_title}</p>
         <p><strong>Date & Time:</strong> ${interviewDate}</p>
         <p><strong>Meeting Link:</strong> <a href="${job.meeting_link}">${job.meeting_link}</a></p>
@@ -109,19 +118,19 @@ ${company.company_name} Team
       text: `
 Interview Scheduled
 
-Candidate: ${candidate.candidate_name} (${candidate.email})
+Candidate: ${application.candidate_name} (${application.email})
 Job: ${job.job_title}
 Date & Time: ${interviewDate}
 Meeting Link: ${job.meeting_link}
       `
     })
 
-    logger.info(`Interview scheduled for candidate ${candidate_id} at ${interview_date_time}`)
+    logger.info(`Interview scheduled for application ${applicantId} at ${interviewTime}`)
 
     return res.status(200).json({
       success: true,
       message: 'Interview scheduled successfully',
-      candidate: updated
+      application: updated
     })
   } catch (error: any) {
     logger.error('Failed to schedule interview:', error)

@@ -4,7 +4,7 @@ import { generateReportPDF, type ReportData } from './pdfGenerator.js'
 import { saveFile } from '../../utils/storage.js'
 import { EmailService } from '../emailService.js'
 import { logger } from '../../utils/logger.js'
-import { CandidateRepository } from '../../repositories/candidateRepository.js'
+import { ApplicationRepository } from '../../repositories/applicationRepository.js'
 import { JobPostingRepository } from '../../repositories/jobPostingRepository.js'
 import { CompanyRepository } from '../../repositories/companyRepository.js'
 
@@ -16,7 +16,7 @@ export interface ReportResult {
 }
 
 export async function generatePostDeadlineReport(jobPostingId: string): Promise<ReportResult> {
-  const candidateRepo = new CandidateRepository()
+  const applicationRepo = new ApplicationRepository()
   const jobPostingRepo = new JobPostingRepository()
   const companyRepo = new CompanyRepository()
   const emailService = new EmailService()
@@ -54,32 +54,31 @@ export async function generatePostDeadlineReport(jobPostingId: string): Promise<
     throw new Error('Company not found')
   }
 
-  // Fetch all candidates
-  const candidates = await candidateRepo.findByJob(jobPostingId)
+  // Fetch all applications
+  const applications = await applicationRepo.findByJob(jobPostingId)
 
-  const applicants: ApplicantData[] = candidates.map(candidate => ({
-    id: candidate.id,
-    candidate_name: candidate.candidate_name,
-    email: candidate.email,
-    ai_score: candidate.score,
-    ai_status: candidate.status,
-    reasoning: candidate.reasoning,
-    parsed_resume_json: {
-      linkedin: candidate.parsedlinkedin,
-      github: candidate.parsedgithub,
-      email: candidate.parsedemail
-    },
-    links: [
-      candidate.parsedlinkedin,
-      candidate.parsedgithub
-    ].filter(Boolean) as string[]
-  }))
+  const applicants: ApplicantData[] = applications.map(app => {
+    const parsedResume = app.parsed_resume_json || {}
+    return {
+      id: app.application_id,
+      candidate_name: app.candidate_name,
+      email: app.email,
+      ai_score: app.ai_score,
+      ai_status: app.ai_status,
+      reasoning: app.reasoning,
+      parsed_resume_json: parsedResume,
+      links: [
+        parsedResume.linkedin,
+        parsedResume.github
+      ].filter(Boolean) as string[]
+    }
+  })
 
   // Calculate statistics
   const total = applicants.length
   const shortlisted = applicants.filter(a => a.ai_status === 'SHORTLIST').length
-  const flagged = applicants.filter(a => a.ai_status === 'FLAGGED').length
-  const rejected = applicants.filter(a => a.ai_status === 'REJECTED').length
+  const flagged = applicants.filter(a => a.ai_status === 'FLAG').length
+  const rejected = applicants.filter(a => a.ai_status === 'REJECT').length
   const scores = applicants.filter(a => a.ai_score !== null).map(a => a.ai_score!)
   const averageScore = scores.length > 0 
     ? scores.reduce((sum, score) => sum + score, 0) / scores.length 

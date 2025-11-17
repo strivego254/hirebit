@@ -2,7 +2,7 @@ import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
 import { JobPostingRepository } from '../repositories/jobPostingRepository.js'
 import { CompanyRepository } from '../repositories/companyRepository.js'
-import { CandidateRepository } from '../repositories/candidateRepository.js'
+import { ApplicationRepository } from '../repositories/applicationRepository.js'
 import { CVParser } from '../lib/cv-parser.js'
 import { AIScoringEngine } from '../lib/ai-scoring.js'
 import { saveFile } from '../utils/storage.js'
@@ -14,7 +14,7 @@ export class EmailReader {
   private isRunning = false
   private jobPostingRepo: JobPostingRepository
   private companyRepo: CompanyRepository
-  private candidateRepo: CandidateRepository
+  private applicationRepo: ApplicationRepository
   private cvParser: CVParser
   private aiScoring: AIScoringEngine
   private emailService: EmailService
@@ -22,7 +22,7 @@ export class EmailReader {
   constructor() {
     this.jobPostingRepo = new JobPostingRepository()
     this.companyRepo = new CompanyRepository()
-    this.candidateRepo = new CandidateRepository()
+    this.applicationRepo = new ApplicationRepository()
     this.cvParser = new CVParser()
     this.aiScoring = new AIScoringEngine()
     this.emailService = new EmailService()
@@ -184,20 +184,20 @@ export class EmailReader {
         }
       }
 
-      // Create candidate record
-      const candidate = await this.candidateRepo.create({
+      // Create application record
+      const application = await this.applicationRepo.create({
         job_posting_id: job.job_posting_id,
         company_id: company.company_id,
         candidate_name: senderName,
         email: senderEmail,
-        cv_url: cvUrl
+        resume_url: cvUrl
       })
 
       // Process CV if available
       if (cvBuffer && cvMimeType) {
-        await this.processCandidateCV(candidate.id, cvBuffer, cvMimeType, job)
+        await this.processCandidateCV(application.application_id, cvBuffer, cvMimeType, job)
       } else {
-        logger.warn(`No CV attachment found for candidate ${candidate.id}`)
+        logger.warn(`No CV attachment found for application ${application.application_id}`)
       }
 
       // Send HR notification
@@ -246,7 +246,7 @@ export class EmailReader {
   }
 
   private async processCandidateCV(
-    candidateId: string,
+    applicationId: string,
     cvBuffer: Buffer,
     mimeType: string,
     job: any
@@ -255,57 +255,64 @@ export class EmailReader {
       // Parse CV
       const parsed = await this.cvParser.parseCVBuffer(cvBuffer, mimeType)
 
-      // Update candidate with parsed links
-      await this.candidateRepo.updateLinks({
-        id: candidateId,
-        parsedlinkedin: parsed.linkedin,
-        parsedgithub: parsed.github,
-        parsedemail: parsed.embeddedEmails.length > 0 ? parsed.embeddedEmails[0] : null
+      // Build parsed resume JSON with links
+      const parsedResumeJson = {
+        textContent: parsed.textContent,
+        linkedin: parsed.linkedin,
+        github: parsed.github,
+        embeddedEmails: parsed.embeddedEmails
+      }
+
+      // Update application with parsed resume
+      await this.applicationRepo.updateParsedResume({
+        application_id: applicationId,
+        parsed_resume_json: parsedResumeJson
       })
 
       // Extract skills
-      const extractedSkills = this.cvParser.extractSkills(parsed.textContent, job.required_skills)
+      const extractedSkills = this.cvParser.extractSkills(parsed.textContent, job.required_skills || [])
 
       // Score candidate
       const scoringResult = await this.aiScoring.scoreCandidate({
         jobDescription: job.job_description,
-        requiredSkills: job.required_skills,
+        requiredSkills: job.required_skills || [],
         candidateCVText: parsed.textContent,
         extractedSkills
       })
 
-      // Update candidate with score
-      await this.candidateRepo.updateScoring({
-        id: candidateId,
-        score: scoringResult.score,
-        status: scoringResult.status,
-        reasoning: scoringResult.reasoning
+      // Update application with score
+      await this.applicationRepo.updateScoring({
+        application_id: applicationId,
+        ai_score: scoringResult.score,
+        ai_status: scoringResult.status,
+        reasoning: scoringResult.reasoning,
+        parsed_resume_json: parsedResumeJson
       })
 
       // Send appropriate email to candidate
-      const candidate = await this.candidateRepo.findById(candidateId)
-      if (candidate) {
+      const application = await this.applicationRepo.findById(applicationId)
+      if (application) {
         if (scoringResult.status === 'SHORTLIST') {
           await this.emailService.sendShortlistEmail({
-            candidateEmail: candidate.email,
-            candidateName: candidate.candidate_name || 'Candidate',
+            candidateEmail: application.email,
+            candidateName: application.candidate_name || 'Candidate',
             jobTitle: job.job_title,
             companyName: '', // Will be fetched if needed
             interviewLink: job.meeting_link
           })
-        } else if (scoringResult.status === 'REJECTED') {
+        } else if (scoringResult.status === 'REJECT') {
           await this.emailService.sendRejectionEmail({
-            candidateEmail: candidate.email,
-            candidateName: candidate.candidate_name || 'Candidate',
+            candidateEmail: application.email,
+            candidateName: application.candidate_name || 'Candidate',
             jobTitle: job.job_title,
             companyName: ''
           })
         }
       }
 
-      logger.info(`Processed CV for candidate ${candidateId}, score: ${scoringResult.score}, status: ${scoringResult.status}`)
+      logger.info(`Processed CV for application ${applicationId}, score: ${scoringResult.score}, status: ${scoringResult.status}`)
     } catch (error) {
-      logger.error(`Error processing CV for candidate ${candidateId}:`, error)
+      logger.error(`Error processing CV for application ${applicationId}:`, error)
     }
   }
 }

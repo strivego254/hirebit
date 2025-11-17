@@ -56,8 +56,8 @@ export async function generateReportAnalysis(
   const openai = new OpenAI({ apiKey })
 
   const shortlisted = applicants.filter(a => a.ai_status === 'SHORTLIST')
-  const flagged = applicants.filter(a => a.ai_status === 'FLAGGED')
-  const rejected = applicants.filter(a => a.ai_status === 'REJECTED')
+  const flagged = applicants.filter(a => a.ai_status === 'FLAG')
+  const rejected = applicants.filter(a => a.ai_status === 'REJECT')
 
   const prompt = `You are an expert HR analyst. Generate a comprehensive hiring report analysis.
 

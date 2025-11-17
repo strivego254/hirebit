@@ -2,7 +2,7 @@ import OpenAI from 'openai'
 
 export interface ScoringResult {
   score: number // 0-100
-  status: 'SHORTLIST' | 'FLAGGED' | 'REJECTED'
+  status: 'SHORTLIST' | 'FLAG' | 'REJECT'
   reasoning: string
 }
 
@@ -58,11 +58,11 @@ export class AIScoringEngine {
 
       // Validate and normalize
       const score = Math.max(0, Math.min(100, Math.round(parsed.score)))
-      let status: 'SHORTLIST' | 'FLAGGED' | 'REJECTED' = 'REJECTED'
+      let status: 'SHORTLIST' | 'FLAG' | 'REJECT' = 'REJECT'
       
       if (score >= 80) status = 'SHORTLIST'
-      else if (score >= 50) status = 'FLAGGED'
-      else status = 'REJECTED'
+      else if (score >= 50) status = 'FLAG'
+      else status = 'REJECT'
 
       return {
         score,
@@ -95,14 +95,14 @@ ${input.extractedSkills.join(', ')}
 Evaluate the candidate and return JSON with:
 {
   "score": <number 0-100>,
-  "status": "SHORTLIST" | "FLAGGED" | "REJECTED",
+  "status": "SHORTLIST" | "FLAG" | "REJECT",
   "reasoning": "<detailed explanation of why this score and status>"
 }
 
 Scoring guidelines:
 - 80-100: SHORTLIST (strong match, meets most requirements)
-- 50-79: FLAGGED (partial match, needs review)
-- 0-49: REJECTED (poor match, doesn't meet requirements)
+- 50-79: FLAG (partial match, needs review)
+- 0-49: REJECT (poor match, doesn't meet requirements)
 
 Consider: skill match, experience relevance, education, overall fit.`
   }
@@ -141,17 +141,17 @@ Consider: skill match, experience relevance, education, overall fit.`
     score = Math.min(100, score)
 
     // Determine status
-    let status: 'SHORTLIST' | 'FLAGGED' | 'REJECTED'
+    let status: 'SHORTLIST' | 'FLAG' | 'REJECT'
     let reasoning: string
 
     if (score >= 80) {
       status = 'SHORTLIST'
       reasoning = `Strong candidate with ${skillMatches}/${requiredSkills.length} required skills matched. Good experience and qualifications.`
     } else if (score >= 50) {
-      status = 'FLAGGED'
+      status = 'FLAG'
       reasoning = `Partial match with ${skillMatches}/${requiredSkills.length} required skills. May need additional review.`
     } else {
-      status = 'REJECTED'
+      status = 'REJECT'
       reasoning = `Weak match with only ${skillMatches}/${requiredSkills.length} required skills. Does not meet minimum requirements.`
     }
 
