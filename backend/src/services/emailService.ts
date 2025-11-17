@@ -25,6 +25,8 @@ export class EmailService {
     candidateName: string
     jobTitle: string
     companyName: string
+    companyEmail?: string | null
+    companyDomain?: string | null
     interviewLink: string | null
   }) {
     const html = `
@@ -73,8 +75,12 @@ Best regards,
 ${data.companyName} Team
     `
 
+    // Generate from email: use company_email, companyDomain, or fallback
+    const fromEmail = this.getCompanyEmail(data.companyEmail, data.companyDomain, data.companyName)
+    
     await this.sendEmail({
       to: data.candidateEmail,
+      from: fromEmail,
       subject: `Congratulations! You've been shortlisted for ${data.jobTitle}`,
       html,
       text
@@ -86,6 +92,8 @@ ${data.companyName} Team
     candidateName: string
     jobTitle: string
     companyName: string
+    companyEmail?: string | null
+    companyDomain?: string | null
   }) {
     const html = `
 <!DOCTYPE html>
@@ -130,8 +138,12 @@ Best regards,
 ${data.companyName} Team
     `
 
+    // Generate from email: use company_email, companyDomain, or fallback
+    const fromEmail = this.getCompanyEmail(data.companyEmail, data.companyDomain, data.companyName)
+    
     await this.sendEmail({
       to: data.candidateEmail,
+      from: fromEmail,
       subject: `Application Update - ${data.jobTitle}`,
       html,
       text
@@ -196,14 +208,49 @@ HireBit System
     })
   }
 
+  /**
+   * Generate company noreply email address
+   * Priority: company_email > noreply@company_domain > noreply@sanitized_company_name.com > env fallback
+   */
+  getCompanyEmail(companyEmail: string | null | undefined, companyDomain: string | null | undefined, companyName: string): string {
+    // If company_email exists, use it
+    if (companyEmail) {
+      return companyEmail
+    }
+    
+    // If company_domain exists, use noreply@domain
+    if (companyDomain) {
+      // Remove http://, https://, www. if present
+      const cleanDomain = companyDomain
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .split('/')[0]
+        .toLowerCase()
+      return `noreply@${cleanDomain}`
+    }
+    
+    // Fallback: generate from company name (sanitized)
+    if (companyName) {
+      const sanitized = companyName
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .substring(0, 20)
+      return `noreply@${sanitized}.com`
+    }
+    
+    // Final fallback
+    return process.env.MAIL_FROM || process.env.MAIL_USER || 'noreply@hirebit.com'
+  }
+
   async sendEmail(data: {
     to: string
     subject: string
     html: string
     text: string
+    from?: string
   }) {
     try {
-      const from = process.env.MAIL_FROM || process.env.MAIL_USER || 'noreply@hirebit.com'
+      const from = data.from || process.env.MAIL_FROM || process.env.MAIL_USER || 'noreply@hirebit.com'
       
       await this.transporter.sendMail({
         from,

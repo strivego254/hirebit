@@ -97,6 +97,8 @@ export async function generatePostDeadlineReport(jobPostingId: string): Promise<
   const companyData: CompanyData = {
     company_id: company.company_id,
     company_name: company.company_name,
+    company_email: company.company_email,
+    company_domain: company.company_domain,
     hr_email: company.hr_email
   }
   const analysis = await generateReportAnalysis(jobData, companyData, applicants)
@@ -269,8 +271,16 @@ Download Full Report: ${reportUrl}
 Generated on ${new Date().toLocaleString()}
   `
 
+    // Generate company email for from address
+    const companyEmail = emailService.getCompanyEmail(
+      company.company_email,
+      company.company_domain,
+      company.company_name
+    )
+    
     await emailService.sendEmail({
       to: company.hr_email,
+      from: companyEmail,
       subject: `Final Hiring Report – ${job.job_title} – ${company.company_name}`,
       html,
       text

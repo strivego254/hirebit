@@ -4,6 +4,7 @@ export interface Company {
   company_id: string
   company_name: string
   company_email: string | null
+  company_domain: string | null
   hr_email: string
   created_at: string
 }
@@ -11,7 +12,7 @@ export interface Company {
 export class CompanyRepository {
   async findByEmail(email: string): Promise<Company | null> {
     const { rows } = await query<Company>(
-      `SELECT company_id, company_name, company_email, hr_email, created_at
+      `SELECT company_id, company_name, company_email, company_domain, hr_email, created_at
        FROM companies
        WHERE company_email = $1 OR hr_email = $1
        LIMIT 1`,
@@ -22,7 +23,7 @@ export class CompanyRepository {
 
   async findByName(name: string): Promise<Company | null> {
     const { rows } = await query<Company>(
-      `SELECT company_id, company_name, company_email, hr_email, created_at
+      `SELECT company_id, company_name, company_email, company_domain, hr_email, created_at
        FROM companies
        WHERE company_name = $1
        LIMIT 1`,
@@ -50,7 +51,7 @@ export class CompanyRepository {
 
   async findById(id: string): Promise<Company | null> {
     const { rows } = await query<Company>(
-      `SELECT company_id, company_name, company_email, hr_email, created_at
+      `SELECT company_id, company_name, company_email, company_domain, hr_email, created_at
        FROM companies
        WHERE company_id = $1
        LIMIT 1`,

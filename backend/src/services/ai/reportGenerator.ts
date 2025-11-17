@@ -23,6 +23,8 @@ export interface JobData {
 export interface CompanyData {
   company_id: string
   company_name: string
+  company_email: string | null
+  company_domain: string | null
   hr_email: string
 }
 

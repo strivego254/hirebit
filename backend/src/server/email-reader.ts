@@ -195,7 +195,7 @@ export class EmailReader {
 
       // Process CV if available
       if (cvBuffer && cvMimeType) {
-        await this.processCandidateCV(application.application_id, cvBuffer, cvMimeType, job)
+        await this.processCandidateCV(application.application_id, cvBuffer, cvMimeType, job, company)
       } else {
         logger.warn(`No CV attachment found for application ${application.application_id}`)
       }
@@ -249,7 +249,8 @@ export class EmailReader {
     applicationId: string,
     cvBuffer: Buffer,
     mimeType: string,
-    job: any
+    job: any,
+    company: any
   ) {
     try {
       // Parse CV
@@ -292,12 +293,17 @@ export class EmailReader {
       // Send appropriate email to candidate
       const application = await this.applicationRepo.findById(applicationId)
       if (application) {
+        // Fetch fresh company data to ensure we have company_domain
+        const companyData = await this.companyRepo.findById(company.company_id)
+        
         if (scoringResult.status === 'SHORTLIST') {
           await this.emailService.sendShortlistEmail({
             candidateEmail: application.email,
             candidateName: application.candidate_name || 'Candidate',
             jobTitle: job.job_title,
-            companyName: '', // Will be fetched if needed
+            companyName: companyData?.company_name || company.company_name,
+            companyEmail: companyData?.company_email || company.company_email,
+            companyDomain: companyData?.company_domain || company.company_domain,
             interviewLink: job.meeting_link
           })
         } else if (scoringResult.status === 'REJECT') {
@@ -305,7 +311,9 @@ export class EmailReader {
             candidateEmail: application.email,
             candidateName: application.candidate_name || 'Candidate',
             jobTitle: job.job_title,
-            companyName: ''
+            companyName: companyData?.company_name || company.company_name,
+            companyEmail: companyData?.company_email || company.company_email,
+            companyDomain: companyData?.company_domain || company.company_domain
           })
         }
       }

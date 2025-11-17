@@ -76,9 +76,17 @@ export async function scheduleInterview(req: Request, res: Response) {
       minute: '2-digit'
     })
 
+    // Generate company email for from address
+    const companyEmail = emailService.getCompanyEmail(
+      company.company_email,
+      company.company_domain,
+      company.company_name
+    )
+    
     // Email candidate
     await emailService.sendEmail({
       to: application.email,
+      from: companyEmail,
       subject: `Interview Scheduled - ${job.job_title}`,
       html: `
         <h2>Interview Scheduled</h2>
@@ -106,6 +114,7 @@ ${company.company_name} Team
     // Email HR
     await emailService.sendEmail({
       to: company.hr_email,
+      from: companyEmail,
       subject: `Interview Scheduled - ${application.candidate_name} for ${job.job_title}`,
       html: `
         <h2>Interview Scheduled</h2>
