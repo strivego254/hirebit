@@ -33,6 +33,26 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+// Database health check
+app.get('/health/db', async (_req, res) => {
+  try {
+    const { query } = await import('./db/index.js')
+    const result = await query('SELECT NOW() as time, version() as version')
+    res.json({ 
+      status: 'ok', 
+      database: 'connected',
+      time: result.rows[0]?.time,
+      version: result.rows[0]?.version?.split(' ')[0] + ' ' + result.rows[0]?.version?.split(' ')[1]
+    })
+  } catch (error: any) {
+    res.status(500).json({ 
+      status: 'error', 
+      database: 'disconnected',
+      error: error.message 
+    })
+  }
+})
+
 // Routes
 app.use('/companies', companiesRouter)
 app.use('/jobs', jobsRouter)
