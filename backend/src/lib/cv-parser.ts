@@ -7,17 +7,19 @@ export interface ParsedCV {
   textContent: string
   linkedin: string | null
   github: string | null
-  embeddedEmails: string[]
+  emails: string[]
+  other_links: string[]
 }
 
-const LINKEDIN_REGEX = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in|pub|profile)\/[\w-]+\/?/gi
-const GITHUB_REGEX = /(?:https?:\/\/)?(?:www\.)?github\.com\/[\w-]+\/?/gi
-const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+// Regex for extracting all hyperlinks (including hidden in formatting)
 const URL_REGEX = /https?:\/\/[^\s)]+/gi
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+const MAILTO_REGEX = /mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi
 
 export class CVParser {
   /**
    * Parse CV file and extract text content and links
+   * Input: { filePath: string }
    */
   async parseCV(filePath: string): Promise<ParsedCV> {
     const ext = path.extname(filePath).toLowerCase()
@@ -30,8 +32,15 @@ export class CVParser {
         textContent = pdfData.text
       } else if (ext === '.docx' || ext === '.doc') {
         const buffer = await fs.readFile(filePath)
-        const result = await mammoth.extractRawText({ buffer })
-        textContent = result.value
+        // Extract both raw text and HTML to catch hidden hyperlinks
+        const textResult = await mammoth.extractRawText({ buffer })
+        const htmlResult = await mammoth.convertToHtml({ buffer })
+        textContent = textResult.value
+        // Extract links from HTML as well (hidden in formatting)
+        const htmlLinks = htmlResult.value.match(URL_REGEX) || []
+        if (htmlLinks.length > 0) {
+          textContent += '\n' + htmlLinks.join(' ')
+        }
       } else {
         // Try to read as plain text
         textContent = await fs.readFile(filePath, 'utf-8')
@@ -55,8 +64,15 @@ export class CVParser {
         textContent = pdfData.text
       } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
                  mimeType === 'application/msword') {
-        const result = await mammoth.extractRawText({ buffer })
-        textContent = result.value
+        // Extract both raw text and HTML to catch hidden hyperlinks
+        const textResult = await mammoth.extractRawText({ buffer })
+        const htmlResult = await mammoth.convertToHtml({ buffer })
+        textContent = textResult.value
+        // Extract links from HTML as well (hidden in formatting)
+        const htmlLinks = htmlResult.value.match(URL_REGEX) || []
+        if (htmlLinks.length > 0) {
+          textContent += '\n' + htmlLinks.join(' ')
+        }
       } else if (mimeType.startsWith('text/')) {
         textContent = buffer.toString('utf-8')
       } else {
@@ -77,32 +93,56 @@ export class CVParser {
 
   /**
    * Extract and classify links from text content
+   * Categorizes: LinkedIn, GitHub, Emails (mailto:), Other links
    */
   private extractLinks(textContent: string): ParsedCV {
-    // Extract all URLs
-    const allUrls = textContent.match(URL_REGEX) || []
+    // Clean text: remove excessive spacing and newlines
+    const cleanedText = textContent
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .replace(/\n+/g, ' ') // Replace newlines with space
+      .trim()
+
+    // Extract all URLs using regex: /https?:\/\/[^\s)]+/gi
+    const allUrls = [...new Set((cleanedText.match(URL_REGEX) || []).map(url => url.trim()))]
     
-    // Extract LinkedIn links
-    const linkedinMatches = textContent.match(LINKEDIN_REGEX) || []
-    const linkedin = linkedinMatches.length > 0 
-      ? linkedinMatches[0].replace(/\/$/, '') // Remove trailing slash
-      : null
+    // Extract emails from mailto: links
+    const mailtoMatches = [...cleanedText.matchAll(MAILTO_REGEX)]
+    const mailtoEmails = mailtoMatches.map(match => match[1])
+    
+    // Extract regular email addresses
+    const emailMatches = [...new Set((cleanedText.match(EMAIL_REGEX) || []).map(email => email.trim()))]
+    
+    // Combine all emails (mailto + regular)
+    const allEmails = [...new Set([...mailtoEmails, ...emailMatches])]
 
-    // Extract GitHub links
-    const githubMatches = textContent.match(GITHUB_REGEX) || []
-    const github = githubMatches.length > 0
-      ? githubMatches[0].replace(/\/$/, '') // Remove trailing slash
-      : null
+    // Categorize links
+    let linkedin: string | null = null
+    let github: string | null = null
+    const otherLinks: string[] = []
 
-    // Extract email addresses
-    const emailMatches = textContent.match(EMAIL_REGEX) || []
-    const embeddedEmails = [...new Set(emailMatches)] // Remove duplicates
+    for (const url of allUrls) {
+      const lowerUrl = url.toLowerCase()
+      
+      if (lowerUrl.includes('linkedin.com')) {
+        if (!linkedin) {
+          linkedin = url.replace(/\/$/, '') // Remove trailing slash, keep first match
+        }
+      } else if (lowerUrl.includes('github.com')) {
+        if (!github) {
+          github = url.replace(/\/$/, '') // Remove trailing slash, keep first match
+        }
+      } else {
+        // Not LinkedIn or GitHub, add to other_links
+        otherLinks.push(url)
+      }
+    }
 
     return {
-      textContent: textContent.trim(),
+      textContent: cleanedText,
       linkedin,
       github,
-      embeddedEmails
+      emails: allEmails,
+      other_links: otherLinks
     }
   }
 

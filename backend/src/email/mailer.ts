@@ -1,19 +1,33 @@
+// Note: Requires npm install nodemailer @types/nodemailer @types/node
 import nodemailer from 'nodemailer'
 
-const host = process.env.SMTP_HOST || 'localhost'
-const port = Number(process.env.SMTP_PORT || 1025)
-const user = process.env.SMTP_USER || ''
+// Type declaration for process.env (avoids requiring @types/node)
+declare const process: {
+  env: {
+    [key: string]: string | undefined
+  }
+}
+
+const from = 'hirebitapplications@gmail.com'
+const host = process.env.SMTP_HOST || 'smtp.gmail.com'
+const port = Number(process.env.SMTP_PORT || 587)
+const user = process.env.SMTP_USER || from // Default to hirebitapplications@gmail.com
 const pass = process.env.SMTP_PASS || ''
-const from = process.env.EMAIL_FROM || 'no-reply@hirebit.local'
 
 export const transporter = nodemailer.createTransport({
   host,
   port,
   secure: port === 465,
-  auth: user ? { user, pass } : undefined
+  auth: pass ? { user, pass } : undefined // Only use auth if password is provided
 })
 
-export async function sendEmail(opts: { to: string; subject: string; text?: string; html?: string; attachments?: Array<{ filename: string; content: Buffer }> }) {
+export async function sendEmail(opts: { 
+  to: string
+  subject: string
+  text?: string
+  html?: string
+  attachments?: Array<{ filename: string; content: string | Buffer }>
+}) {
   await transporter.sendMail({
     from,
     to: opts.to,

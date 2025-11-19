@@ -12,11 +12,21 @@ pnpm-debug.log*
 logs/
 *.log
 
-# Environment files
+# Environment files - ALL variations
 .env
+.env.*
+.env.backup
+*.env.backup
 **/.env
 **/.env.local
 **/.env.*.local
+**/.env.backup
+**/*.env.backup
+backend/.env
+backend/.env.*
+backend/.env.backup
+frontend/.env.local
+frontend/.env
 !.env.example
 
 # Build outputs

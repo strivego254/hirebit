@@ -1,35 +1,56 @@
-import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export interface ScoringResult {
   score: number // 0-100
-  status: 'SHORTLIST' | 'FLAG' | 'REJECT'
-  reasoning: string
+  status: 'SHORTLIST' | 'FLAGGED' | 'REJECTED'
+  reasoning: string // transparent explanation
 }
 
 export interface ScoringInput {
-  jobDescription: string
-  requiredSkills: string[]
-  candidateCVText: string
-  extractedSkills?: string[]
+  job: {
+    title: string
+    description: string
+    required_skills: string[]
+  }
+  cvText: string
 }
 
 export class AIScoringEngine {
-  private openai: OpenAI | null = null
+  private genAI: GoogleGenerativeAI | null = null
+  private useGemini: boolean = false
 
   constructor() {
-    const apiKey = process.env.OPENAI_API_KEY
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey })
+    // Use Gemini only - with key rotation/fallback
+    const geminiKey = this.getGeminiApiKey()
+    
+    if (geminiKey) {
+      this.genAI = new GoogleGenerativeAI(geminiKey)
+      this.useGemini = true
+    } else {
+      this.useGemini = false
     }
   }
 
   /**
+   * Get Gemini API key with rotation/fallback support
+   * Tries: GEMINI_API_KEY -> GEMINI_API_KEY_002 -> GEMINI_API_KEY_003
+   */
+  private getGeminiApiKey(): string | null {
+    return process.env.GEMINI_API_KEY 
+      || process.env.GEMINI_API_KEY_002 
+      || process.env.GEMINI_API_KEY_003 
+      || null
+  }
+
+  /**
    * Score a candidate using AI
+   * Input: { job: { title, description, required_skills }, cvText }
+   * Output: { score: 0-100, status: "SHORTLIST" | "FLAGGED" | "REJECTED", reasoning: string }
    */
   async scoreCandidate(input: ScoringInput): Promise<ScoringResult> {
-    const model = process.env.SCORING_MODEL || process.env.RESUME_PARSER_MODEL || 'gpt-4o'
+    const model = process.env.SCORING_MODEL || 'gemini-1.5-flash'
 
-    if (!this.openai) {
+    if (!this.genAI && !this.useGemini) {
       // Fallback to rule-based scoring
       return this.fallbackScoring(input)
     }
@@ -37,79 +58,138 @@ export class AIScoringEngine {
     try {
       const prompt = this.buildScoringPrompt(input)
       
-      const response = await this.openai.chat.completions.create({
-        model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert HR recruiter. Analyze candidates and provide scores (0-100), status (SHORTLIST/FLAGGED/REJECTED), and detailed reasoning. Always return valid JSON.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        response_format: { type: 'json_object' }
-      })
+      if (this.useGemini && this.genAI) {
+        // Use Gemini
+        const geminiModel = this.genAI.getGenerativeModel({ 
+          model: model.includes('gemini') ? model : 'gemini-1.5-flash' 
+        })
+        
+        const systemInstruction = 'You are an expert HR recruiter. Analyze candidates objectively based ONLY on skills, experience, and job relevance. NO discrimination on gender, ethnicity, age, religion, or location. Base score purely on skills, experience, and relevance. Always return valid JSON.'
+        
+        const fullPrompt = `${systemInstruction}\n\n${prompt}`
+        
+        const result = await geminiModel.generateContent(fullPrompt)
+        const response = await result.response
+        const content = response.text() || '{}'
+        
+        // Extract JSON from response (Gemini might wrap it in markdown)
+        const jsonMatch = content.match(/\{[\s\S]*\}/)
+        const jsonContent = jsonMatch ? jsonMatch[0] : content
+        const parsed = JSON.parse(jsonContent) as { score: number; status: string; reasoning: string }
 
-      const content = response.choices[0]?.message?.content || '{}'
-      const parsed = JSON.parse(content) as { score: number; status: string; reasoning: string }
+        // Validate and normalize
+        const score = Math.max(0, Math.min(100, Math.round(parsed.score)))
+        let status: 'SHORTLIST' | 'FLAGGED' | 'REJECTED' = 'REJECTED'
+        
+        // Mandatory scoring rules
+        if (score >= 80) status = 'SHORTLIST'
+        else if (score >= 50) status = 'FLAGGED'
+        else status = 'REJECTED'
 
-      // Validate and normalize
-      const score = Math.max(0, Math.min(100, Math.round(parsed.score)))
-      let status: 'SHORTLIST' | 'FLAG' | 'REJECT' = 'REJECT'
-      
-      if (score >= 80) status = 'SHORTLIST'
-      else if (score >= 50) status = 'FLAG'
-      else status = 'REJECT'
-
-      return {
-        score,
-        status,
-        reasoning: parsed.reasoning || 'No reasoning provided'
+        return {
+          score,
+          status,
+          reasoning: parsed.reasoning || 'No reasoning provided'
+        }
+      } else {
+        // Fallback to rule-based
+        return this.fallbackScoring(input)
       }
     } catch (error) {
-      console.error('AI scoring failed, using fallback:', error)
-      return this.fallbackScoring(input)
+      console.error('AI scoring failed, retrying with fallback:', error)
+      // Retry once with simpler prompt
+      try {
+        return await this.retryScoring(input)
+      } catch (retryError) {
+        return this.fallbackScoring(input)
+      }
     }
   }
 
   private buildScoringPrompt(input: ScoringInput): string {
-    return `Analyze this candidate for the job position.
+    const cvText = input.cvText.substring(0, 4000) // Limit to prevent token overflow
+    
+    return `Analyze this candidate for the job position objectively.
+
+JOB TITLE:
+${input.job.title}
 
 JOB DESCRIPTION:
-${input.jobDescription}
+${input.job.description}
 
 REQUIRED SKILLS:
-${input.requiredSkills.join(', ')}
+${input.job.required_skills.join(', ')}
 
 CANDIDATE CV TEXT:
-${input.candidateCVText.substring(0, 3000)}${input.candidateCVText.length > 3000 ? '...' : ''}
+${cvText}${input.cvText.length > 4000 ? '...' : ''}
 
-${input.extractedSkills && input.extractedSkills.length > 0 ? `
-EXTRACTED SKILLS FROM CV:
-${input.extractedSkills.join(', ')}
-` : ''}
+INSTRUCTIONS:
+1. Analyze the job description and extract key requirements
+2. Extract candidate skills from the CV text
+3. Compare skill match between required skills and candidate skills
+4. Score based on objective criteria: skill match, experience relevance, education alignment
+5. NO discrimination: Do NOT consider gender, ethnicity, age, religion, or location
+6. Base score purely on: skills, experience, relevance to job requirements
 
-Evaluate the candidate and return JSON with:
+Return JSON with this EXACT structure:
 {
   "score": <number 0-100>,
-  "status": "SHORTLIST" | "FLAG" | "REJECT",
-  "reasoning": "<detailed explanation of why this score and status>"
+  "status": "SHORTLIST" | "FLAGGED" | "REJECTED",
+  "reasoning": "<transparent explanation of why this score and status, list specific skills matched, experience relevance>"
 }
 
-Scoring guidelines:
-- 80-100: SHORTLIST (strong match, meets most requirements)
-- 50-79: FLAG (partial match, needs review)
-- 0-49: REJECT (poor match, doesn't meet requirements)
+MANDATORY SCORING RULES:
+- 80-100 → SHORTLIST (strong match, meets most requirements)
+- 50-79 → FLAGGED (partial match, needs review)
+- <50 → REJECTED (poor match, doesn't meet requirements)
 
-Consider: skill match, experience relevance, education, overall fit.`
+Consider ONLY: skill match percentage, years of relevant experience, education relevance, overall job fit.`
+  }
+
+  /**
+   * Retry scoring with simpler prompt if initial attempt fails
+   */
+  private async retryScoring(input: ScoringInput): Promise<ScoringResult> {
+    if (!this.genAI || !this.useGemini) {
+      return this.fallbackScoring(input)
+    }
+
+    const simplePrompt = `Job: ${input.job.title}
+Required Skills: ${input.job.required_skills.join(', ')}
+CV: ${input.cvText.substring(0, 2000)}
+
+Score 0-100 based on skill match. Return JSON: {"score": number, "status": "SHORTLIST"|"FLAGGED"|"REJECTED", "reasoning": "string"}`
+
+    try {
+      const geminiModel = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+      const result = await geminiModel.generateContent(`Return valid JSON only. Score objectively based on skills.\n\n${simplePrompt}`)
+      const response = await result.response
+      const content = response.text() || '{}'
+      
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      const jsonContent = jsonMatch ? jsonMatch[0] : content
+      const parsed = JSON.parse(jsonContent) as { score: number; status: string; reasoning: string }
+      
+      const score = Math.max(0, Math.min(100, Math.round(parsed.score)))
+      let status: 'SHORTLIST' | 'FLAGGED' | 'REJECTED' = 'REJECTED'
+      
+      if (score >= 80) status = 'SHORTLIST'
+      else if (score >= 50) status = 'FLAGGED'
+      else status = 'REJECTED'
+
+      return {
+        score,
+        status,
+        reasoning: parsed.reasoning || 'Scored based on skill match'
+      }
+    } catch (error) {
+      return this.fallbackScoring(input)
+    }
   }
 
   private fallbackScoring(input: ScoringInput): ScoringResult {
-    const cvText = input.candidateCVText.toLowerCase()
-    const requiredSkills = input.requiredSkills.map(s => s.toLowerCase())
+    const cvText = input.cvText.toLowerCase()
+    const requiredSkills = input.job.required_skills.map(s => s.toLowerCase())
     
     // Count skill matches
     let skillMatches = 0
@@ -140,18 +220,18 @@ Consider: skill match, experience relevance, education, overall fit.`
     // Cap at 100
     score = Math.min(100, score)
 
-    // Determine status
-    let status: 'SHORTLIST' | 'FLAG' | 'REJECT'
+    // Determine status (mandatory rules)
+    let status: 'SHORTLIST' | 'FLAGGED' | 'REJECTED'
     let reasoning: string
 
     if (score >= 80) {
       status = 'SHORTLIST'
       reasoning = `Strong candidate with ${skillMatches}/${requiredSkills.length} required skills matched. Good experience and qualifications.`
     } else if (score >= 50) {
-      status = 'FLAG'
+      status = 'FLAGGED'
       reasoning = `Partial match with ${skillMatches}/${requiredSkills.length} required skills. May need additional review.`
     } else {
-      status = 'REJECT'
+      status = 'REJECTED'
       reasoning = `Weak match with only ${skillMatches}/${requiredSkills.length} required skills. Does not meet minimum requirements.`
     }
 

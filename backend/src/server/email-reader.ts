@@ -5,6 +5,7 @@ import { CompanyRepository } from '../repositories/companyRepository.js'
 import { ApplicationRepository } from '../repositories/applicationRepository.js'
 import { CVParser } from '../lib/cv-parser.js'
 import { AIScoringEngine } from '../lib/ai-scoring.js'
+import { EmailClassifier } from '../lib/email-classifier.js'
 import { saveFile } from '../utils/storage.js'
 import { EmailService } from '../services/emailService.js'
 import { logger } from '../utils/logger.js'
@@ -17,6 +18,7 @@ export class EmailReader {
   private applicationRepo: ApplicationRepository
   private cvParser: CVParser
   private aiScoring: AIScoringEngine
+  private emailClassifier: EmailClassifier
   private emailService: EmailService
 
   constructor() {
@@ -25,6 +27,7 @@ export class EmailReader {
     this.applicationRepo = new ApplicationRepository()
     this.cvParser = new CVParser()
     this.aiScoring = new AIScoringEngine()
+    this.emailClassifier = new EmailClassifier()
     this.emailService = new EmailService()
   }
 
@@ -34,9 +37,13 @@ export class EmailReader {
       return
     }
 
+    // IMAP config from .env
     const imapHost = process.env.IMAP_HOST
+    const imapPort = parseInt(process.env.IMAP_PORT || '993', 10)
     const imapUser = process.env.IMAP_USER
     const imapPass = process.env.IMAP_PASS
+    const imapSecure = process.env.IMAP_SECURE !== 'false' // Default to true
+    const imapPollMs = parseInt(process.env.IMAP_POLL_MS || '30000', 10) // Default 30 seconds
 
     if (!imapHost || !imapUser || !imapPass) {
       logger.warn('IMAP credentials not configured, email reader disabled')
@@ -46,8 +53,8 @@ export class EmailReader {
     try {
       this.client = new ImapFlow({
         host: imapHost,
-        port: 993,
-        secure: true,
+        port: imapPort,
+        secure: imapSecure,
         auth: {
           user: imapUser,
           pass: imapPass
@@ -55,15 +62,40 @@ export class EmailReader {
       })
 
       await this.client.connect()
-      logger.info('IMAP email reader connected')
+      logger.info(`IMAP email reader connected to ${imapHost}:${imapPort}`)
+
+      // Ensure folders exist
+      await this.ensureFolders()
 
       this.isRunning = true
 
       // Start monitoring inbox
-      await this.monitorInbox()
+      await this.monitorInbox(imapPollMs)
     } catch (error) {
       logger.error('Failed to start email reader:', error)
       this.isRunning = false
+    }
+  }
+
+  /**
+   * Ensure Processed and Failed folders exist
+   */
+  private async ensureFolders() {
+    if (!this.client) return
+
+    try {
+      const folders = ['Processed', 'Failed']
+      for (const folderName of folders) {
+        try {
+          await this.client.mailboxOpen(folderName)
+        } catch {
+          // Folder doesn't exist, create it
+          await this.client.mailboxCreate(folderName)
+          logger.info(`Created IMAP folder: ${folderName}`)
+        }
+      }
+    } catch (error) {
+      logger.warn('Could not ensure folders exist:', error)
     }
   }
 
@@ -76,10 +108,8 @@ export class EmailReader {
     logger.info('Email reader stopped')
   }
 
-  private async monitorInbox() {
+  private async monitorInbox(pollInterval: number) {
     if (!this.client) return
-
-    const checkInterval = parseInt(process.env.IMAP_POLL_MS || '30000', 10) // Default 30 seconds
 
     while (this.isRunning) {
       try {
@@ -88,7 +118,7 @@ export class EmailReader {
         logger.error('Error processing emails:', error)
       }
 
-      await new Promise(resolve => setTimeout(resolve, checkInterval))
+      await new Promise(resolve => setTimeout(resolve, pollInterval))
     }
   }
 
@@ -98,7 +128,7 @@ export class EmailReader {
     try {
       const lock = await this.client.getMailboxLock('INBOX')
       try {
-        // Search for unseen emails
+        // Search for unseen emails with subject starting with "Application for"
         const messages = await this.client.search({
           seen: false
         })
@@ -111,13 +141,42 @@ export class EmailReader {
             })
 
             if (message.source && message.envelope) {
-              await this.processEmail(message.source, message.envelope)
+              const subject = message.envelope.subject || ''
+              
+              // Only process emails with subject starting with "Application for"
+              if (subject.toLowerCase().startsWith('application for')) {
+                try {
+                  await this.processEmail(message.source, message.envelope)
+                  
+                  // Mark as seen
+                  await this.client.messageFlagsAdd(seq, ['\\Seen'])
+                  
+                  // Move to Processed folder
+                  await this.moveToFolder(seq, 'Processed')
+                  
+                  logger.info(`Successfully processed email: ${subject}`)
+                } catch (error) {
+                  logger.error(`Error processing email ${seq}:`, error)
+                  
+                  // Mark as seen
+                  await this.client.messageFlagsAdd(seq, ['\\Seen'])
+                  
+                  // Move to Failed folder if parser fails
+                  await this.moveToFolder(seq, 'Failed')
+                }
+              } else {
+                logger.debug(`Skipping email (subject doesn't match): ${subject}`)
+              }
             }
-
-            // Mark as seen
-            await this.client.messageFlagsAdd(seq, ['\\Seen'])
           } catch (error) {
             logger.error(`Error processing email ${seq}:`, error)
+            // Try to move to Failed folder
+            try {
+              await this.client.messageFlagsAdd(seq, ['\\Seen'])
+              await this.moveToFolder(seq, 'Failed')
+            } catch (moveError) {
+              logger.error(`Failed to move email ${seq} to Failed folder:`, moveError)
+            }
           }
         }
       } finally {
@@ -125,6 +184,20 @@ export class EmailReader {
       }
     } catch (error) {
       logger.error('Error accessing inbox:', error)
+    }
+  }
+
+  /**
+   * Move email to a different folder
+   */
+  private async moveToFolder(seq: number, folderName: string) {
+    if (!this.client) return
+
+    try {
+      await this.client.messageMove(seq, folderName)
+      logger.debug(`Moved email ${seq} to ${folderName}`)
+    } catch (error) {
+      logger.warn(`Could not move email ${seq} to ${folderName}:`, error)
     }
   }
 
@@ -256,12 +329,13 @@ export class EmailReader {
       // Parse CV
       const parsed = await this.cvParser.parseCVBuffer(cvBuffer, mimeType)
 
-      // Build parsed resume JSON with links
+      // Build parsed resume JSON with links (aligned with CV parser output)
       const parsedResumeJson = {
         textContent: parsed.textContent,
         linkedin: parsed.linkedin,
         github: parsed.github,
-        embeddedEmails: parsed.embeddedEmails
+        emails: parsed.emails,
+        other_links: parsed.other_links
       }
 
       // Update application with parsed resume
@@ -273,19 +347,26 @@ export class EmailReader {
       // Extract skills
       const extractedSkills = this.cvParser.extractSkills(parsed.textContent, job.required_skills || [])
 
-      // Score candidate
+      // Score candidate (aligned with new input format)
       const scoringResult = await this.aiScoring.scoreCandidate({
-        jobDescription: job.job_description,
-        requiredSkills: job.required_skills || [],
-        candidateCVText: parsed.textContent,
-        extractedSkills
+        job: {
+          title: job.job_title,
+          description: job.job_description,
+          required_skills: job.required_skills || []
+        },
+        cvText: parsed.textContent
       })
 
+      // Map status: FLAGGED -> FLAG, REJECTED -> REJECT (to match database enum)
+      const dbStatus = scoringResult.status === 'FLAGGED' ? 'FLAG' : 
+                       scoringResult.status === 'REJECTED' ? 'REJECT' : 
+                       scoringResult.status
+      
       // Update application with score
       await this.applicationRepo.updateScoring({
         application_id: applicationId,
         ai_score: scoringResult.score,
-        ai_status: scoringResult.status,
+        ai_status: dbStatus as 'SHORTLIST' | 'FLAG' | 'REJECT',
         reasoning: scoringResult.reasoning,
         parsed_resume_json: parsedResumeJson
       })
@@ -296,6 +377,7 @@ export class EmailReader {
         // Fetch fresh company data to ensure we have company_domain
         const companyData = await this.companyRepo.findById(company.company_id)
         
+        // Check status (use original status, not mapped)
         if (scoringResult.status === 'SHORTLIST') {
           await this.emailService.sendShortlistEmail({
             candidateEmail: application.email,
@@ -306,7 +388,7 @@ export class EmailReader {
             companyDomain: companyData?.company_domain || company.company_domain,
             interviewLink: job.meeting_link
           })
-        } else if (scoringResult.status === 'REJECT') {
+        } else if (scoringResult.status === 'REJECTED') {
           await this.emailService.sendRejectionEmail({
             candidateEmail: application.email,
             candidateName: application.candidate_name || 'Candidate',

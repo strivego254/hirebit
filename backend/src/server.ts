@@ -13,10 +13,12 @@ import { router as contactRouter } from './routes/contact.js'
 import { router as authRouter } from './routes/auth.js'
 import { router as hrReportsRouter } from './routes/hr-reports.js'
 import { router as scheduleRouter } from './routes/schedule.js'
+import { router as adminRouter } from './routes/admin.js'
 import { ensureStorageDir } from './utils/storage.js'
 import { logger } from './utils/logger.js'
 import './cron/reportScheduler.js'
-import './server/email-reader.js'
+// Email reader disabled for now - uncomment when EmailClassifier is fixed
+// import './server/email-reader.js'
 
 const app = express()
 const port = Number(process.env.PORT || 3001)
@@ -44,6 +46,7 @@ app.use('/api/system/reports', reportsRouter) // System/cron endpoints
 app.use('/api', scheduleRouter) // POST /api/schedule-interview
 app.use('/contact', contactRouter)
 app.use('/auth', authRouter)
+app.use('/api/admin', adminRouter) // Admin endpoints
 
 // Start
 async function start() {

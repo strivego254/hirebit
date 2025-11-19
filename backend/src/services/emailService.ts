@@ -1,13 +1,18 @@
 import nodemailer from 'nodemailer'
 import { logger } from '../utils/logger.js'
+import fs from 'fs/promises'
+import path from 'path'
 
 export class EmailService {
   private transporter: nodemailer.Transporter
+
+  private logFile: string
 
   constructor() {
     const mailHost = process.env.MAIL_HOST || 'smtp.gmail.com'
     const mailUser = process.env.MAIL_USER
     const mailPass = process.env.MAIL_PASS
+    const mailFrom = 'hirebitapplications@gmail.com'
 
     this.transporter = nodemailer.createTransport({
       host: mailHost,
@@ -17,6 +22,91 @@ export class EmailService {
         user: mailUser,
         pass: mailPass
       } : undefined
+    })
+
+    // Setup email log file
+    this.logFile = path.join(process.cwd(), 'logs', 'email.log')
+    this.ensureLogDirectory()
+  }
+
+  private async ensureLogDirectory() {
+    try {
+      await fs.mkdir(path.dirname(this.logFile), { recursive: true })
+    } catch (error) {
+      // Directory might already exist
+    }
+  }
+
+  private async logEmail(to: string, subject: string, status: 'sent' | 'failed', error?: string) {
+    try {
+      const timestamp = new Date().toISOString()
+      const logEntry = `[${timestamp}] ${status.toUpperCase()} | To: ${to} | Subject: ${subject}${error ? ` | Error: ${error}` : ''}\n`
+      await fs.appendFile(this.logFile, logEntry)
+    } catch (error) {
+      logger.error('Failed to write email log:', error)
+    }
+  }
+
+  /**
+   * Candidate Acknowledgment Email (SHORTLISTED)
+   * sendAcknowledgement(email, jobTitle, meetingLink)
+   */
+  async sendAcknowledgement(data: {
+    email: string
+    jobTitle: string
+    meetingLink: string | null
+    candidateName?: string
+    companyName?: string
+  }) {
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #2D2DDD; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; background: #f9f9f9; }
+    .button { display: inline-block; padding: 12px 24px; background: #2D2DDD; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎉 Congratulations!</h1>
+    </div>
+    <div class="content">
+      <p>Hi ${data.candidateName || 'Candidate'},</p>
+      <p>Great news! You've been shortlisted for the position of <strong>${data.jobTitle}</strong>.</p>
+      ${data.meetingLink ? `
+      <p>Meeting link: <a href="${data.meetingLink}" class="button">Join Interview</a></p>
+      <p><strong>Note:</strong> Interview time will be shared separately via email.</p>
+      ` : '<p>Interview details will be shared soon via email.</p>'}
+      <p>Best regards,<br>${data.companyName || 'Hiring Team'}</p>
+    </div>
+  </div>
+</body>
+</html>
+    `
+
+    const text = `
+Congratulations!
+
+Hi ${data.candidateName || 'Candidate'},
+
+Great news! You've been shortlisted for the position of ${data.jobTitle}.
+
+${data.meetingLink ? `Meeting link: ${data.meetingLink}\n\nNote: Interview time will be shared separately via email.` : 'Interview details will be shared soon via email.'}
+
+Best regards,
+${data.companyName || 'Hiring Team'}
+    `
+
+    await this.sendEmail({
+      to: data.email,
+      subject: `Congratulations! You've been shortlisted for ${data.jobTitle}`,
+      html,
+      text
     })
   }
 
@@ -150,12 +240,18 @@ ${data.companyName} Team
     })
   }
 
+  /**
+   * HR Notification for Every New Applicant
+   * sendHRNotification(hr_email, candidate_name, score, status)
+   */
   async sendHRNotification(data: {
     hrEmail: string
     candidateName: string
     candidateEmail: string
     jobTitle: string
     companyName: string
+    score?: number | null
+    status?: string | null
   }) {
     const html = `
 <!DOCTYPE html>
@@ -178,7 +274,9 @@ ${data.companyName} Team
       <p>A new application has been received for <strong>${data.jobTitle}</strong>.</p>
       <p><strong>Candidate:</strong> ${data.candidateName}</p>
       <p><strong>Email:</strong> ${data.candidateEmail}</p>
-      <p>The candidate is being processed and scored. You'll receive updates once the evaluation is complete.</p>
+      ${data.score !== null && data.score !== undefined ? `<p><strong>Score:</strong> ${data.score}/100</p>` : ''}
+      ${data.status ? `<p><strong>Status:</strong> ${data.status}</p>` : ''}
+      <p>${data.score !== null && data.score !== undefined ? 'The candidate has been evaluated.' : 'The candidate is being processed and scored. You\'ll receive updates once the evaluation is complete.'}</p>
       <p>Best regards,<br>HireBit System</p>
     </div>
   </div>
@@ -193,8 +291,10 @@ A new application has been received for ${data.jobTitle}.
 
 Candidate: ${data.candidateName}
 Email: ${data.candidateEmail}
+${data.score !== null && data.score !== undefined ? `Score: ${data.score}/100` : ''}
+${data.status ? `Status: ${data.status}` : ''}
 
-The candidate is being processed and scored. You'll receive updates once the evaluation is complete.
+${data.score !== null && data.score !== undefined ? 'The candidate has been evaluated.' : 'The candidate is being processed and scored. You\'ll receive updates once the evaluation is complete.'}
 
 Best regards,
 HireBit System
@@ -238,8 +338,167 @@ HireBit System
       return `noreply@${sanitized}.com`
     }
     
-    // Final fallback
-    return process.env.MAIL_FROM || process.env.MAIL_USER || 'noreply@hirebit.com'
+    // Final fallback - use hirebitapplications@gmail.com
+    return 'hirebitapplications@gmail.com'
+  }
+
+  /**
+   * Interview Scheduled Email
+   * sendInterviewSchedule(candidate_email, jobTitle, meeting_time, meetingLink)
+   */
+  async sendInterviewSchedule(data: {
+    candidate_email: string
+    jobTitle: string
+    meeting_time: string
+    meetingLink: string
+    candidateName?: string
+    companyName?: string
+  }) {
+    const meetingDate = new Date(data.meeting_time).toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    })
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #2D2DDD; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; background: #f9f9f9; }
+    .button { display: inline-block; padding: 12px 24px; background: #2D2DDD; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+    .info-box { background: white; padding: 15px; border-left: 4px solid #2D2DDD; margin: 15px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Interview Scheduled</h1>
+    </div>
+    <div class="content">
+      <p>Hi ${data.candidateName || 'Candidate'},</p>
+      <p>Your interview for <strong>${data.jobTitle}</strong> has been scheduled.</p>
+      <div class="info-box">
+        <p><strong>Date & Time:</strong> ${meetingDate}</p>
+        <p><strong>Meeting Link:</strong> <a href="${data.meetingLink}" class="button">Join Interview</a></p>
+      </div>
+      <p>Please arrive 5 minutes early and have your documents ready.</p>
+      <p>Best regards,<br>${data.companyName || 'Hiring Team'}</p>
+    </div>
+  </div>
+</body>
+</html>
+    `
+
+    const text = `
+Interview Scheduled
+
+Hi ${data.candidateName || 'Candidate'},
+
+Your interview for ${data.jobTitle} has been scheduled.
+
+Date & Time: ${meetingDate}
+Meeting Link: ${data.meetingLink}
+
+Please arrive 5 minutes early and have your documents ready.
+
+Best regards,
+${data.companyName || 'Hiring Team'}
+    `
+
+    await this.sendEmail({
+      to: data.candidate_email,
+      subject: `Interview Scheduled - ${data.jobTitle}`,
+      html,
+      text
+    })
+  }
+
+  /**
+   * HR Interview Confirmation Email
+   * sendHRInterviewConfirmation(hr_email, candidate, time)
+   */
+  async sendHRInterviewConfirmation(data: {
+    hr_email: string
+    candidate: {
+      name: string
+      email: string
+    }
+    time: string
+    jobTitle: string
+    meetingLink: string
+    companyName?: string
+  }) {
+    const meetingDate = new Date(data.time).toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    })
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #2D2DDD; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; background: #f9f9f9; }
+    .info-box { background: white; padding: 15px; border-left: 4px solid #2D2DDD; margin: 15px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Interview Confirmed</h1>
+    </div>
+    <div class="content">
+      <p>Hi,</p>
+      <p>An interview has been scheduled:</p>
+      <div class="info-box">
+        <p><strong>Candidate:</strong> ${data.candidate.name} (${data.candidate.email})</p>
+        <p><strong>Job:</strong> ${data.jobTitle}</p>
+        <p><strong>Date & Time:</strong> ${meetingDate}</p>
+        <p><strong>Meeting Link:</strong> <a href="${data.meetingLink}">${data.meetingLink}</a></p>
+      </div>
+      <p>Best regards,<br>HireBit System</p>
+    </div>
+  </div>
+</body>
+</html>
+    `
+
+    const text = `
+Interview Confirmed
+
+An interview has been scheduled:
+
+Candidate: ${data.candidate.name} (${data.candidate.email})
+Job: ${data.jobTitle}
+Date & Time: ${meetingDate}
+Meeting Link: ${data.meetingLink}
+
+Best regards,
+HireBit System
+    `
+
+    await this.sendEmail({
+      to: data.hr_email,
+      subject: `Interview Scheduled - ${data.candidate.name} for ${data.jobTitle}`,
+      html,
+      text
+    })
   }
 
   async sendEmail(data: {
@@ -250,7 +509,7 @@ HireBit System
     from?: string
   }) {
     try {
-      const from = data.from || process.env.MAIL_FROM || process.env.MAIL_USER || 'noreply@hirebit.com'
+      const from = data.from || 'hirebitapplications@gmail.com'
       
       await this.transporter.sendMail({
         from,
@@ -261,8 +520,11 @@ HireBit System
       })
 
       logger.info(`Email sent to ${data.to}: ${data.subject}`)
-    } catch (error) {
+      await this.logEmail(data.to, data.subject, 'sent')
+    } catch (error: any) {
+      const errorMsg = error?.message || String(error)
       logger.error(`Failed to send email to ${data.to}:`, error)
+      await this.logEmail(data.to, data.subject, 'failed', errorMsg)
       throw error
     }
   }

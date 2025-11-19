@@ -20,9 +20,9 @@
 ### **REQUIRED for Basic Operation:**
 
 ```bash
-# Database (REQUIRED)
-DATABASE_URL=postgres://user:pass@host:port/dbname
-DB_SSL=false  # or true for production
+# Database (REQUIRED - Supabase)
+DATABASE_URL=postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
+DB_SSL=true  # Required for Supabase
 
 # Server (REQUIRED)
 PORT=3001  # Backend port (defaults to 3001)
@@ -68,15 +68,15 @@ JWT_SECRET=your-secret-key  # Defaults to 'dev_secret_change_me'
 
 ## 🚀 Setup Steps
 
-### 1. **Database Setup**
+### 1. **Database Setup (Supabase)**
 ```bash
-# Run schema
-psql $DATABASE_URL -f backend/src/db/schema.sql
+# Run complete schema in Supabase SQL Editor
+# Go to: Supabase Dashboard → SQL Editor
+# Copy and paste: backend/src/db/complete_schema.sql
+# Click "Run" to execute
 
-# Run migrations
-psql $DATABASE_URL -f backend/src/db/migrations/002_interview_fields.sql
-psql $DATABASE_URL -f backend/src/db/migrations/003_reports_table.sql
-psql $DATABASE_URL -f backend/src/db/migrations/004_enterprise_schema.sql
+# OR use psql with Supabase connection string:
+psql "postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres" -f backend/src/db/complete_schema.sql
 ```
 
 ### 2. **Backend Setup**
@@ -116,9 +116,10 @@ npm run dev  # Starts on port 3000
 ## 🎯 Production Requirements
 
 ### **Minimum for Production:**
-1. ✅ `DATABASE_URL` - PostgreSQL connection
-2. ✅ `PORT` - Server port
-3. ✅ `NODE_ENV=production`
+1. ✅ `DATABASE_URL` - Supabase connection string
+2. ✅ `DB_SSL=true` - Required for Supabase
+3. ✅ `PORT` - Server port
+4. ✅ `NODE_ENV=production`
 
 ### **Recommended for Production:**
 1. ✅ `OPENAI_API_KEY` - For AI scoring and reports

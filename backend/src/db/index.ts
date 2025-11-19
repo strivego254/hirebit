@@ -8,7 +8,13 @@ if (!connectionString) {
 
 export const pool = new Pool({
   connectionString,
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+  // Supabase requires SSL by default
+  // SSL is enabled by default for Supabase connections
+  ssl: process.env.DB_SSL === 'false' ? undefined : { rejectUnauthorized: false },
+  // Connection pool settings optimized for Supabase
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 })
 
 export async function query<T = any>(text: string, params?: any[]): Promise<{ rows: T[] }> {

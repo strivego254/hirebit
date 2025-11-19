@@ -1,4 +1,4 @@
-import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export interface ApplicantData {
   id: string
@@ -42,20 +42,27 @@ export interface ReportAnalysis {
   recommendations: string[]
 }
 
+/**
+ * Get Gemini API key with rotation/fallback support
+ * Tries: GEMINI_API_KEY -> GEMINI_API_KEY_002 -> GEMINI_API_KEY_003
+ */
+function getGeminiApiKey(): string | null {
+  return process.env.GEMINI_API_KEY 
+    || process.env.GEMINI_API_KEY_002 
+    || process.env.GEMINI_API_KEY_003 
+    || null
+}
+
 export async function generateReportAnalysis(
   job: JobData,
   company: CompanyData,
   applicants: ApplicantData[]
 ): Promise<ReportAnalysis> {
-  const apiKey = process.env.OPENAI_API_KEY
-  const model = process.env.REPORT_AI_MODEL || 'gpt-4o'
+  const geminiKey = getGeminiApiKey()
+  const model = process.env.REPORT_AI_MODEL || 'gemini-1.5-flash'
 
-  if (!apiKey) {
-    // Fallback to basic analysis without AI
-    return generateBasicAnalysis(job, applicants)
-  }
-
-  const openai = new OpenAI({ apiKey })
+  if (geminiKey) {
+    const genAI = new GoogleGenerativeAI(geminiKey)
 
   const shortlisted = applicants.filter(a => a.ai_status === 'SHORTLIST')
   const flagged = applicants.filter(a => a.ai_status === 'FLAG')
@@ -115,31 +122,35 @@ Generate a JSON response with this exact structure:
 
 Return ONLY valid JSON, no markdown formatting.`
 
-  try {
-    const response = await openai.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert HR analyst. Always return valid JSON only, no markdown or code blocks.'
-        },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.3,
-      response_format: { type: 'json_object' }
-    })
+    try {
+      const geminiModel = genAI.getGenerativeModel({ 
+        model: model.includes('gemini') ? model : 'gemini-1.5-flash' 
+      })
+      
+      const systemInstruction = 'You are an expert HR analyst. Always return valid JSON only, no markdown or code blocks.'
+      const fullPrompt = `${systemInstruction}\n\n${prompt}`
+      
+      const result = await geminiModel.generateContent(fullPrompt)
+      const response = await result.response
+      const content = response.text() || '{}'
+      
+      // Extract JSON from response (Gemini might wrap it in markdown)
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      const jsonContent = jsonMatch ? jsonMatch[0] : content
+      const parsed = JSON.parse(jsonContent) as ReportAnalysis
+      
+      // Ensure top3Candidates is limited to 3
+      if (parsed.top3Candidates && parsed.top3Candidates.length > 3) {
+        parsed.top3Candidates = parsed.top3Candidates.slice(0, 3)
+      }
 
-    const content = response.choices[0]?.message?.content || '{}'
-    const parsed = JSON.parse(content) as ReportAnalysis
-    
-    // Ensure top3Candidates is limited to 3
-    if (parsed.top3Candidates && parsed.top3Candidates.length > 3) {
-      parsed.top3Candidates = parsed.top3Candidates.slice(0, 3)
+      return parsed
+    } catch (error) {
+      console.error('AI report generation failed, using fallback:', error)
+      return generateBasicAnalysis(job, applicants)
     }
-
-    return parsed
-  } catch (error) {
-    console.error('AI report generation failed, using fallback:', error)
+  } else {
+    // Fallback to basic analysis without AI
     return generateBasicAnalysis(job, applicants)
   }
 }
