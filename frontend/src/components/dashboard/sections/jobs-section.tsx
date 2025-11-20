@@ -113,11 +113,14 @@ export function JobsSection() {
         const jobsWithApplicants: JobWithApplicants[] = []
         
         for (const job of jobPostings || []) {
+          // Use job_posting_id if available, otherwise use id
+          const jobId = job.job_posting_id || job.id
+          
           // First try to get analytics from recruitment_analytics table
           const { data: analytics, error: analyticsError } = await supabase
             .from('recruitment_analytics')
             .select('total_applicants, total_applicants_shortlisted, total_applicants_rejected, total_applicants_flagged_to_hr, ai_overall_analysis, processing_status')
-            .eq('job_posting_id', job.id)
+            .eq('job_posting_id', jobId)
             .single()
           
           // If analytics exist, use them; otherwise fall back to applicants table
@@ -135,6 +138,7 @@ export function JobsSection() {
             
             jobsWithApplicants.push({
               ...job,
+              id: jobId, // Ensure id is set correctly
               applicantStats,
               analytics: analytics.ai_overall_analysis || null,
               processingStatus: analytics.processing_status || 'processing'
@@ -144,7 +148,7 @@ export function JobsSection() {
             const { data: applicants, error: applicantsError } = await supabase
               .from('applicants')
               .select('status')
-              .eq('job_posting_id', job.id)
+              .eq('job_posting_id', jobId)
             
             const applicantStats = {
               total: applicants?.length || 0,
@@ -156,6 +160,7 @@ export function JobsSection() {
             
             jobsWithApplicants.push({
               ...job,
+              id: jobId, // Ensure id is set correctly
               applicantStats
             })
           }
@@ -237,6 +242,7 @@ export function JobsSection() {
           
           jobsWithApplicants.push({
             ...job,
+            id: jobId, // Ensure id is set correctly
             applicantStats,
             analytics: analytics.ai_overall_analysis || null,
             processingStatus: analytics.processing_status || 'processing'
@@ -246,7 +252,7 @@ export function JobsSection() {
           const { data: applicants, error: applicantsError } = await supabase
             .from('applicants')
             .select('status')
-            .eq('job_posting_id', job.id)
+            .eq('job_posting_id', jobId)
           
           const applicantStats = {
             total: applicants?.length || 0,
@@ -258,6 +264,7 @@ export function JobsSection() {
           
           jobsWithApplicants.push({
             ...job,
+            id: jobId, // Ensure id is set correctly
             applicantStats
           })
         }
@@ -293,15 +300,31 @@ export function JobsSection() {
           job_description: jobData.job_description,
           required_skills: jobData.required_skills,
           application_deadline: jobData.application_deadline,
-          interview_date: jobData.interview_date,
-          meeting_link: jobData.interview_meeting_link || undefined,
-          google_calendar_link: jobData.google_calendar_link || undefined
+          meeting_link: jobData.interview_meeting_link || undefined
         })
       })
       const data = await resp.json().catch(() => ({}))
       if (!resp.ok || !data?.success) {
-        const msg = data?.error?.message || 'Backend rejected the request'
-        throw new Error(msg)
+        // Extract detailed error message
+        let errorMsg = 'Backend rejected the request'
+        if (data?.error) {
+          if (typeof data.error === 'string') {
+            errorMsg = data.error
+          } else if (data.error.message) {
+            errorMsg = data.error.message
+            if (data.error.details) {
+              errorMsg += `: ${data.error.details}`
+            }
+          } else if (data.error.fieldErrors) {
+            // Zod validation errors
+            const fieldErrors = Object.entries(data.error.fieldErrors)
+              .map(([field, errors]: [string, any]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
+              .join('; ')
+            errorMsg = `Validation failed: ${fieldErrors}`
+          }
+        }
+        console.error('Job creation error:', data)
+        throw new Error(errorMsg)
       }
       
       const jobPostingId: string = data.job_posting_id
@@ -318,9 +341,7 @@ export function JobsSection() {
           job_title: jobData.job_title,
           job_description: jobData.job_description,
           required_skills: jobData.required_skills,
-          interview_date: jobData.interview_date,
           interview_meeting_link: jobData.interview_meeting_link || null,
-          google_calendar_link: jobData.google_calendar_link,
           application_deadline: jobData.application_deadline || null,
           status: 'active',
         n8n_webhook_sent: false,
@@ -335,14 +356,11 @@ export function JobsSection() {
         processingStatus: 'processing'
       }
       
-      setJobs(prev => [composedJob, ...prev])
       console.log('✅ New job created via backend:', { jobPostingId, companyId })
       
-      // Trigger refresh shortly after to sync with backend state
-      setTimeout(() => {
-        console.log('🔄 Refreshing jobs list after creation...')
-        refreshJobs()
-      }, 800)
+      // Immediately refresh jobs list to get the actual job from database
+      console.log('🔄 Refreshing jobs list immediately after creation...')
+      await refreshJobs()
       
       return { job: composedJob, company: { id: companyId } }
     } catch (err) {

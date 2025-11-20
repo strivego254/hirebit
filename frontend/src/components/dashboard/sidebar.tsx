@@ -14,10 +14,11 @@ import {
   LogOut,
   ChevronRight,
   Download,
-  Calendar
+  Calendar,
+  Shield
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
 
 const sidebarItems = [
@@ -61,8 +62,9 @@ interface SidebarProps {
 export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const { signOut } = useAuth()
+  const { signOut, user } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
   const { resolvedTheme } = useTheme()
 
   useEffect(() => {
@@ -142,6 +144,28 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
               </button>
             )
           })}
+          
+          {/* Admin Dashboard Link (only for admins) */}
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => router.push('/admin')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-200 group ${
+                pathname?.startsWith('/admin')
+                  ? 'bg-gradient-to-r from-purple-600/10 to-purple-600/5 dark:from-purple-600/20 dark:to-purple-600/10 text-purple-600 dark:text-purple-400 border border-purple-600/30 dark:border-purple-600/50'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-purple-600 dark:hover:text-purple-400'
+              }`}
+            >
+              <Shield className={`w-5 h-5 flex-shrink-0 ${pathname?.startsWith('/admin') ? 'text-purple-600' : 'text-gray-500 dark:text-gray-400 group-hover:text-purple-600'}`} />
+              {!isCollapsed && (
+                <>
+                  <span className="font-figtree font-medium">Admin Dashboard</span>
+                  {pathname?.startsWith('/admin') && (
+                    <ChevronRight className="w-4 h-4 ml-auto text-purple-600" />
+                  )}
+                </>
+              )}
+            </button>
+          )}
         </nav>
 
         {/* Reports Section */}

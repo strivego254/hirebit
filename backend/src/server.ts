@@ -14,6 +14,8 @@ import { router as authRouter } from './routes/auth.js'
 import { router as hrReportsRouter } from './routes/hr-reports.js'
 import { router as scheduleRouter } from './routes/schedule.js'
 import { router as adminRouter } from './routes/admin.js'
+import { router as userPreferencesRouter } from './routes/user-preferences.js'
+import { router as userRouter } from './routes/user.js'
 import { ensureStorageDir } from './utils/storage.js'
 import { logger } from './utils/logger.js'
 import './cron/reportScheduler.js'
@@ -67,6 +69,8 @@ app.use('/api', scheduleRouter) // POST /api/schedule-interview
 app.use('/contact', contactRouter)
 app.use('/auth', authRouter)
 app.use('/api/admin', adminRouter) // Admin endpoints
+app.use('/api/user', userRouter) // User profile endpoints
+app.use('/api/user/preferences', userPreferencesRouter) // User preferences endpoints
 
 // Start
 async function start() {

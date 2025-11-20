@@ -17,9 +17,7 @@ export interface JobPosting {
   job_title: string
   job_description: string
   required_skills: string[]
-  interview_date: string
   interview_meeting_link: string | null
-  google_calendar_link: string
   application_deadline: string | null
   status: 'active' | 'paused' | 'closed'
   n8n_webhook_sent: boolean
@@ -58,9 +56,7 @@ export interface JobPostingFormData {
   job_title: string
   job_description: string
   required_skills: string[]
-  interview_date: string
   interview_meeting_link?: string
-  google_calendar_link: string
   application_deadline?: string
 }
 
@@ -73,9 +69,7 @@ export interface WebhookPayload {
   job_title: string
   job_description: string
   required_skills: string[]
-  interview_date: string
   interview_meeting_link?: string
-  google_calendar_link: string
   application_deadline?: string
 }
 

@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { X, Plus, Calendar, Briefcase, MapPin, Users, Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react'
 import { JobPostingFormData } from '@/types'
-import { DateTimePicker } from '@/components/ui/date-time-picker'
+import { SingleDateTimePicker } from '@/components/ui/single-date-time-picker'
 
 interface CreateJobModalProps {
   isOpen: boolean
@@ -26,9 +26,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
     job_title: '',
     job_description: '',
     required_skills: [],
-    interview_date: '',
     interview_meeting_link: '',
-    google_calendar_link: '',
     application_deadline: '',
   })
 
@@ -62,6 +60,48 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Client-side validation
+    if (!formData.company_name || formData.company_name.length < 2) {
+      setWebhookStatus({ 
+        status: 'error', 
+        message: 'Company name must be at least 2 characters' 
+      })
+      return
+    }
+    
+    if (!formData.job_title || formData.job_title.length < 3) {
+      setWebhookStatus({ 
+        status: 'error', 
+        message: 'Job title must be at least 3 characters' 
+      })
+      return
+    }
+    
+    if (!formData.job_description || formData.job_description.length < 50) {
+      setWebhookStatus({ 
+        status: 'error', 
+        message: 'Job description must be at least 50 characters' 
+      })
+      return
+    }
+    
+    if (!formData.required_skills || formData.required_skills.length === 0) {
+      setWebhookStatus({ 
+        status: 'error', 
+        message: 'Please add at least one required skill' 
+      })
+      return
+    }
+    
+    if (!formData.application_deadline) {
+      setWebhookStatus({ 
+        status: 'error', 
+        message: 'Please select an application deadline' 
+      })
+      return
+    }
+    
     setIsSubmitting(true)
     setWebhookStatus({ status: 'sending', message: 'Creating job posting...' })
 
@@ -71,10 +111,10 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
       
       setWebhookStatus({ 
         status: 'success', 
-        message: 'Job posting created successfully!' 
+        message: 'Job posting created successfully! Refreshing list...' 
       })
       
-      // Close modal after a short delay to show success message
+      // Wait a moment for the refresh to complete, then close modal
       setTimeout(() => {
         onClose()
         // Reset form and status
@@ -85,18 +125,17 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
           job_title: '',
           job_description: '',
           required_skills: [],
-          interview_date: '',
           interview_meeting_link: '',
-          google_calendar_link: '',
           application_deadline: '',
         })
         setWebhookStatus({ status: 'idle', message: '' })
-      }, 2000)
+      }, 1500)
     } catch (error) {
       console.error('Error creating job posting:', error)
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred while creating the job posting'
       setWebhookStatus({ 
         status: 'error', 
-        message: 'An error occurred while creating the job posting' 
+        message: errorMessage
       })
     } finally {
       setIsSubmitting(false)
@@ -208,21 +247,31 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="job_description" className="text-gray-900 dark:text-white">Job Description</Label>
+                      <Label htmlFor="job_description" className="text-gray-900 dark:text-white">
+                        Job Description <span className="text-gray-500 text-sm">(min 50 characters)</span>
+                      </Label>
                       <Textarea
                         id="job_description"
                         value={formData.job_description}
                         onChange={(e) => handleInputChange('job_description', e.target.value)}
-                        placeholder="Describe the role, responsibilities, and requirements..."
+                        placeholder="Describe the role, responsibilities, and requirements... (at least 50 characters)"
                         rows={4}
                         className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-white dark:focus-visible:border-white focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
                         required
+                        minLength={50}
                       />
+                      {formData.job_description && formData.job_description.length < 50 && (
+                        <p className="text-sm text-amber-600 dark:text-amber-400">
+                          {50 - formData.job_description.length} more characters needed
+                        </p>
+                      )}
                     </div>
                     
                     {/* Skills */}
                     <div className="space-y-2">
-                      <Label className="text-gray-900 dark:text-white">Required Skills</Label>
+                      <Label className="text-gray-900 dark:text-white">
+                        Required Skills <span className="text-gray-500 text-sm">(at least 1 required)</span>
+                      </Label>
                       <div className="flex gap-2">
                         <Input
                           value={newSkill}
@@ -265,7 +314,7 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                     
                     <div className="space-y-2">
                       <Label htmlFor="application_deadline" className="text-gray-900 dark:text-white">Deadline Date & Time</Label>
-                      <DateTimePicker
+                      <SingleDateTimePicker
                         value={formData.application_deadline}
                         onChange={(value) => handleInputChange('application_deadline', value)}
                         placeholder="Select application deadline and time"
@@ -274,24 +323,17 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                     </div>
                   </div>
 
-                  {/* Interview Details */}
+                  {/* Meeting Links */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-figtree font-semibold text-gray-900 dark:text-white">
-                      Interview Details
+                      Meeting Links
                     </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Interview dates will be scheduled individually for each shortlisted candidate
+                    </p>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="interview_date" className="text-gray-900 dark:text-white">Interview Date & Time</Label>
-                      <DateTimePicker
-                        value={formData.interview_date}
-                        onChange={(value) => handleInputChange('interview_date', value)}
-                        placeholder="Select interview date and time"
-                        minDateTime={new Date().toISOString().slice(0, 16)}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="interview_meeting_link" className="text-gray-900 dark:text-white">Meeting Link (Optional)</Label>
+                      <Label htmlFor="interview_meeting_link" className="text-gray-900 dark:text-white">Default Meeting Link (Optional)</Label>
                       <Input
                         id="interview_meeting_link"
                         value={formData.interview_meeting_link}
@@ -299,19 +341,11 @@ export function CreateJobModal({ isOpen, onClose, onSubmit }: CreateJobModalProp
                         placeholder="https://meet.google.com/..."
                         className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-white dark:focus-visible:border-white focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
                       />
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        This will be used as the default meeting link when scheduling interviews for shortlisted candidates
+                      </p>
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="google_calendar_link" className="text-gray-900 dark:text-white">Google Calendar Link</Label>
-                      <Input
-                        id="google_calendar_link"
-                        value={formData.google_calendar_link}
-                        onChange={(e) => handleInputChange('google_calendar_link', e.target.value)}
-                        placeholder="https://calendar.google.com/..."
-                        className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 hover:border-[#2D2DDD] focus-visible:border-white dark:focus-visible:border-white focus-visible:outline-none focus-visible:ring-0 border-focus-thin"
-                        required
-                      />
-                    </div>
                   </div>
 
                   {/* Webhook Status */}

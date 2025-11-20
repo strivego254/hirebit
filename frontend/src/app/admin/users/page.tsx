@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +19,7 @@ interface User {
 
 export default function AdminUsersPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -25,8 +27,17 @@ export default function AdminUsersPage() {
   const [total, setTotal] = useState(0)
 
   useEffect(() => {
+    // Check if user is admin
+    if (user && user.role !== 'admin') {
+      router.push('/dashboard')
+      return
+    }
+    if (!user) {
+      router.push('/auth/signin')
+      return
+    }
     loadUsers()
-  }, [page, search])
+  }, [page, search, user, router])
 
   const loadUsers = async () => {
     try {

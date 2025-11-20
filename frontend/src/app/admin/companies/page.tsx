@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,6 +20,7 @@ interface Company {
 
 export default function AdminCompaniesPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -26,8 +28,17 @@ export default function AdminCompaniesPage() {
   const [total, setTotal] = useState(0)
 
   useEffect(() => {
+    // Check if user is admin
+    if (user && user.role !== 'admin') {
+      router.push('/dashboard')
+      return
+    }
+    if (!user) {
+      router.push('/auth/signin')
+      return
+    }
     loadCompanies()
-  }, [page, search])
+  }, [page, search, user, router])
 
   const loadCompanies = async () => {
     try {

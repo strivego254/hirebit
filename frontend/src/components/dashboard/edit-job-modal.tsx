@@ -28,9 +28,7 @@ export function EditJobModal({ isOpen, onClose, jobPosting, onSave }: EditJobMod
         job_title: jobPosting.job_title,
         job_description: jobPosting.job_description,
         required_skills: jobPosting.required_skills,
-        interview_date: jobPosting.interview_date,
         interview_meeting_link: jobPosting.interview_meeting_link,
-        google_calendar_link: jobPosting.google_calendar_link,
         application_deadline: jobPosting.application_deadline,
         status: jobPosting.status,
       })
@@ -238,18 +236,6 @@ export function EditJobModal({ isOpen, onClose, jobPosting, onSave }: EditJobMod
                         value={formData.interview_meeting_link || ''}
                         onChange={(e) => handleInputChange('interview_meeting_link', e.target.value)}
                         placeholder="https://meet.google.com/..."
-                        className="text-gray-900 dark:text-white dark:bg-gray-800 focus-visible:ring-[#2D2DDD] hover:border-[#2D2DDD]/50 focus-visible:border-[#2D2DDD]"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="google_calendar_link">Google Calendar Link</Label>
-                      <Input
-                        id="google_calendar_link"
-                        value={formData.google_calendar_link || ''}
-                        onChange={(e) => handleInputChange('google_calendar_link', e.target.value)}
-                        placeholder="https://calendar.google.com/..."
-                        required
                         className="text-gray-900 dark:text-white dark:bg-gray-800 focus-visible:ring-[#2D2DDD] hover:border-[#2D2DDD]/50 focus-visible:border-[#2D2DDD]"
                       />
                     </div>

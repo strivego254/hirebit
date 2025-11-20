@@ -63,18 +63,55 @@ export function ProfileSection() {
   })
 
   const loadCompanyData = useCallback(async () => {
-    if (!user) return
+    if (!user || !user.id) {
+      setIsLoading(false)
+      return
+    }
 
     try {
       setIsLoading(true)
+      // Try Supabase first
       const { data, error } = await supabase
         .from('companies')
         .select('id, company_name, company_email, hr_email, created_at')
         .eq('user_id', user.id)
         .single()
 
-      if (error) {
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
         console.error('Error loading company:', error)
+        // Fallback to backend API if Supabase fails
+        try {
+          const token = localStorage.getItem('token')
+          if (token) {
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+            const resp = await fetch(`${backendUrl}/api/companies?user_id=${user.id}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            if (resp.ok) {
+              const companyData = await resp.json()
+              if (companyData && companyData.length > 0) {
+                const comp = companyData[0]
+                setCompany({
+                  id: comp.company_id || comp.id,
+                  company_name: comp.company_name || '',
+                  company_email: comp.company_email || '',
+                  hr_email: comp.hr_email || '',
+                  created_at: comp.created_at || new Date().toISOString()
+                })
+                setFormData({
+                  company_name: comp.company_name || '',
+                  company_email: comp.company_email || '',
+                  hr_email: comp.hr_email || '',
+                })
+              }
+            }
+          }
+        } catch (apiError) {
+          console.error('Error loading company from API:', apiError)
+        }
         return
       }
 
@@ -313,16 +350,30 @@ export function ProfileSection() {
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
               <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <Calendar className="w-4 h-4" />
-                <span>Account created: {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                }) : 'N/A'}</span>
+                <span>
+                  Account created: {user?.created_at 
+                    ? new Date(user.created_at).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) 
+                    : 'Loading...'}
+                </span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <Shield className="w-4 h-4" />
-                <span>Account status: <span className="text-green-600 dark:text-green-400">Active</span></span>
+                <span>
+                  Account status: <span className="text-green-600 dark:text-green-400 font-medium">Active</span>
+                </span>
               </div>
+              {user?.role && (
+                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <Key className="w-4 h-4" />
+                  <span>Role: <span className="font-medium capitalize">{user.role}</span></span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

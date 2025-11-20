@@ -15,11 +15,19 @@ import {
   MapPin,
   CheckCircle,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Bell,
+  FileText,
+  Calendar,
+  BarChart3,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase'
 import { WebhookTest } from '../webhook-test'
+import { Switch } from '@/components/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface CompanyData {
   id: string
@@ -29,12 +37,32 @@ interface CompanyData {
   created_at: string
 }
 
+interface UserPreferences {
+  email_notifications: boolean
+  report_notifications: boolean
+  application_notifications: boolean
+  interview_reminders: boolean
+  weekly_summary: boolean
+  auto_generate_reports: boolean
+  notification_frequency: 'realtime' | 'hourly' | 'daily' | 'weekly'
+}
+
 export function SettingsSection() {
   const { user } = useAuth()
   const [company, setCompany] = useState<CompanyData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false)
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [preferences, setPreferences] = useState<UserPreferences>({
+    email_notifications: true,
+    report_notifications: true,
+    application_notifications: true,
+    interview_reminders: true,
+    weekly_summary: true,
+    auto_generate_reports: true,
+    notification_frequency: 'realtime'
+  })
   const [formData, setFormData] = useState({
     company_name: '',
     company_email: '',
@@ -72,13 +100,56 @@ export function SettingsSection() {
     }
   }, [user])
 
+  const loadUserPreferences = useCallback(async () => {
+    if (!user || !user.id) return
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        console.warn('No token found for loading preferences')
+        return
+      }
+
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+      const resp = await fetch(`${backendUrl}/api/user/preferences`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (resp.ok) {
+        const data = await resp.json()
+        if (data) {
+          setPreferences({
+            email_notifications: data.email_notifications ?? true,
+            report_notifications: data.report_notifications ?? true,
+            application_notifications: data.application_notifications ?? true,
+            interview_reminders: data.interview_reminders ?? true,
+            weekly_summary: data.weekly_summary ?? true,
+            auto_generate_reports: data.auto_generate_reports ?? true,
+            notification_frequency: data.notification_frequency || 'realtime'
+          })
+        }
+      } else if (resp.status === 401) {
+        console.warn('Unauthorized - token may be invalid')
+      } else {
+        console.warn('Failed to load preferences:', resp.status)
+      }
+    } catch (error) {
+      console.error('Error loading user preferences:', error)
+      // Don't show error to user, just use defaults
+    }
+  }, [user])
+
   useEffect(() => {
     if (user) {
       loadCompanyData()
+      loadUserPreferences()
     } else {
       setIsLoading(false)
     }
-  }, [user, loadCompanyData])
+  }, [user, loadCompanyData, loadUserPreferences])
 
   const handleSave = async () => {
     if (!user || !company) return
@@ -110,6 +181,57 @@ export function SettingsSection() {
       setSaveMessage({ type: 'error', text: error.message || 'Failed to update company settings' })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleSavePreferences = async () => {
+    if (!user || !user.id) {
+      setSaveMessage({ type: 'error', text: 'You must be logged in to save preferences' })
+      return
+    }
+
+    setIsSavingPreferences(true)
+    setSaveMessage(null)
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('Not authenticated. Please sign in again.')
+      }
+
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+      const resp = await fetch(`${backendUrl}/api/user/preferences`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(preferences)
+      })
+
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}))
+        if (resp.status === 401) {
+          throw new Error('Session expired. Please sign in again.')
+        }
+        throw new Error(data.error || data.message || 'Failed to update preferences')
+      }
+
+      const result = await resp.json()
+      setSaveMessage({ 
+        type: 'success', 
+        text: result.message || 'Notification preferences updated successfully!' 
+      })
+      setTimeout(() => setSaveMessage(null), 5000)
+    } catch (error: any) {
+      console.error('Error saving preferences:', error)
+      setSaveMessage({ 
+        type: 'error', 
+        text: error.message || 'Failed to update preferences. Please try again.' 
+      })
+      setTimeout(() => setSaveMessage(null), 5000)
+    } finally {
+      setIsSavingPreferences(false)
     }
   }
 
@@ -271,6 +393,144 @@ export function SettingsSection() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Notification Preferences */}
+      <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white">
+            <Bell className="w-5 h-5 text-[#2D2DDD]" />
+            Notification Preferences
+          </CardTitle>
+          <CardDescription className="text-gray-600 dark:text-gray-400">
+            Control how and when you receive notifications
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Mail className="w-4 h-4 text-gray-500" />
+                <div>
+                  <Label className="text-gray-900 dark:text-white font-medium">Email Notifications</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Receive email notifications for important events</p>
+                </div>
+              </div>
+              <Switch
+                checked={preferences.email_notifications}
+                onCheckedChange={(checked) => setPreferences({ ...preferences, email_notifications: checked })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="w-4 h-4 text-gray-500" />
+                <div>
+                  <Label className="text-gray-900 dark:text-white font-medium">Report Notifications</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Get notified when reports are generated</p>
+                </div>
+              </div>
+              <Switch
+                checked={preferences.report_notifications}
+                onCheckedChange={(checked) => setPreferences({ ...preferences, report_notifications: checked })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <User className="w-4 h-4 text-gray-500" />
+                <div>
+                  <Label className="text-gray-900 dark:text-white font-medium">Application Notifications</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Notify when new applications are received</p>
+                </div>
+              </div>
+              <Switch
+                checked={preferences.application_notifications}
+                onCheckedChange={(checked) => setPreferences({ ...preferences, application_notifications: checked })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-4 h-4 text-gray-500" />
+                <div>
+                  <Label className="text-gray-900 dark:text-white font-medium">Interview Reminders</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Receive reminders for scheduled interviews</p>
+                </div>
+              </div>
+              <Switch
+                checked={preferences.interview_reminders}
+                onCheckedChange={(checked) => setPreferences({ ...preferences, interview_reminders: checked })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <BarChart3 className="w-4 h-4 text-gray-500" />
+                <div>
+                  <Label className="text-gray-900 dark:text-white font-medium">Weekly Summary</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Receive weekly summary of activities</p>
+                </div>
+              </div>
+              <Switch
+                checked={preferences.weekly_summary}
+                onCheckedChange={(checked) => setPreferences({ ...preferences, weekly_summary: checked })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Settings className="w-4 h-4 text-gray-500" />
+                <div>
+                  <Label className="text-gray-900 dark:text-white font-medium">Auto-Generate Reports</Label>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Automatically generate reports after deadlines</p>
+                </div>
+              </div>
+              <Switch
+                checked={preferences.auto_generate_reports}
+                onCheckedChange={(checked) => setPreferences({ ...preferences, auto_generate_reports: checked })}
+              />
+            </div>
+
+            <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Label className="text-gray-900 dark:text-white font-medium">Notification Frequency</Label>
+              <Select
+                value={preferences.notification_frequency}
+                onValueChange={(value: 'realtime' | 'hourly' | 'daily' | 'weekly') => 
+                  setPreferences({ ...preferences, notification_frequency: value })
+                }
+              >
+                <SelectTrigger className="bg-white dark:bg-gray-800">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="realtime">Real-time</SelectItem>
+                  <SelectItem value="hourly">Hourly</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                How often to receive batched notifications
+              </p>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleSavePreferences}
+            disabled={isSavingPreferences}
+            className="w-full bg-[#2D2DDD] hover:bg-[#2D2DDD]/90 text-white"
+          >
+            {isSavingPreferences ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Notification Preferences'
+            )}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Webhook Configuration */}
       <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">

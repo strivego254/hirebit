@@ -20,8 +20,8 @@ export async function signup(req: Request, res: Response) {
       return res.status(409).json({ error: 'Account already exists' })
     }
     const hash = await bcrypt.hash(password, SALT_ROUNDS)
-    const { rows } = await query<{ user_id: string }>(
-      `insert into users (email, password_hash, role, is_active) values ($1, $2, 'user', true) returning user_id`,
+    const { rows } = await query<{ user_id: string; created_at: string }>(
+      `insert into users (email, password_hash, role, is_active) values ($1, $2, 'user', true) returning user_id, created_at`,
       [email.toLowerCase(), hash]
     )
     const userId = rows[0].user_id
@@ -30,8 +30,10 @@ export async function signup(req: Request, res: Response) {
       token, 
       user: { 
         user_id: userId, 
+        id: userId, // Also include as 'id' for frontend compatibility
         email: email.toLowerCase(),
-        role: 'user'
+        role: 'user',
+        created_at: rows[0].created_at
       } 
     })
   } catch (err) {
@@ -54,8 +56,8 @@ export async function signin(req: Request, res: Response) {
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' })
     }
-    const { rows } = await query<{ user_id: string; password_hash: string; role: string; is_active: boolean }>(
-      `select user_id, password_hash, role, is_active from users where email = $1`,
+    const { rows } = await query<{ user_id: string; password_hash: string; role: string; is_active: boolean; created_at: string }>(
+      `select user_id, password_hash, role, is_active, created_at from users where email = $1`,
       [email.toLowerCase()]
     )
     if (rows.length === 0) {
@@ -72,9 +74,11 @@ export async function signin(req: Request, res: Response) {
     return res.status(200).json({ 
       token, 
       user: { 
-        user_id: rows[0].user_id, 
+        user_id: rows[0].user_id,
+        id: rows[0].user_id, // Also include as 'id' for frontend compatibility
         email: email.toLowerCase(),
-        role: rows[0].role
+        role: rows[0].role,
+        created_at: rows[0].created_at
       } 
     })
   } catch (err) {

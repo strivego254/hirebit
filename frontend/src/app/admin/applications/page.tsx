@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +22,7 @@ interface Application {
 
 export default function AdminApplicationsPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -29,8 +31,17 @@ export default function AdminApplicationsPage() {
   const [total, setTotal] = useState(0)
 
   useEffect(() => {
+    // Check if user is admin
+    if (user && user.role !== 'admin') {
+      router.push('/dashboard')
+      return
+    }
+    if (!user) {
+      router.push('/auth/signin')
+      return
+    }
     loadApplications()
-  }, [page, search, statusFilter])
+  }, [page, search, statusFilter, user, router])
 
   const loadApplications = async () => {
     try {

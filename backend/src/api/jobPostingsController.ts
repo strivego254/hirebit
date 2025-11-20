@@ -12,9 +12,7 @@ const createJobSchema = z.object({
   application_deadline: z.string().refine(val => !isNaN(Date.parse(val)) && new Date(val) > new Date(), {
     message: 'deadline must be a future datetime'
   }),
-  interview_date: z.string().optional().refine(val => !val || !isNaN(Date.parse(val)), { message: 'invalid date' }),
   meeting_link: z.string().url().optional(),
-  google_calendar_link: z.string().url().optional()
 })
 
 function normalizeSkills(skills: string[]): string[] {
@@ -41,14 +39,14 @@ export async function createJobPosting(req: Request, res: Response) {
 
   const payload = parse.data
   const skills = normalizeSkills(payload.required_skills)
+  
+  // Validate and parse dates
   const applicationDeadline = new Date(payload.application_deadline)
-  const interviewDate = payload.interview_date ? new Date(payload.interview_date) : null
-
-  if (interviewDate && interviewDate <= new Date()) {
-    return res.status(400).json({ success: false, error: { message: 'interview_date must be in the future' } })
-  }
-  if (interviewDate && applicationDeadline && interviewDate < applicationDeadline) {
-    // allow but validate ordering if needed; spec says "optionally after deadline"
+  if (isNaN(applicationDeadline.getTime())) {
+    return res.status(400).json({ 
+      success: false, 
+      error: { message: 'Invalid application_deadline format' } 
+    })
   }
 
   const client = await pool.connect()
@@ -106,13 +104,12 @@ export async function createJobPosting(req: Request, res: Response) {
     // 2) Insert job_posting
     // responsibilities is required in current schema; mirror job_description
     const meetingLink = payload.meeting_link ?? null
-    const googleCal = payload.google_calendar_link ?? null
 
     const jobIns = await client.query<{ job_posting_id: string }>(
       `insert into job_postings
        (company_id, job_title, job_description, responsibilities, skills_required,
-        application_deadline, interview_slots, interview_meeting_link, meeting_link, google_calendar_link, status)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE')
+        application_deadline, interview_slots, interview_meeting_link, meeting_link, status)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'ACTIVE')
        returning job_posting_id`,
       [
         companyId,
@@ -123,8 +120,7 @@ export async function createJobPosting(req: Request, res: Response) {
         applicationDeadline.toISOString(),
         null,
         meetingLink,
-        meetingLink,
-        googleCal
+        meetingLink
       ]
     )
 
@@ -171,8 +167,16 @@ export async function createJobPosting(req: Request, res: Response) {
       message: 'Job posted and workflows scheduled'
     })
   } catch (err) {
-    await client.query('ROLLBACK')
-    return res.status(500).json({ success: false, error: 'Failed to create job posting' })
+    await client.query('ROLLBACK').catch(() => {}) // Ignore rollback errors
+    console.error('Job posting creation error:', err)
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    return res.status(500).json({ 
+      success: false, 
+      error: { 
+        message: 'Failed to create job posting',
+        details: errorMessage
+      } 
+    })
   } finally {
     client.release()
   }

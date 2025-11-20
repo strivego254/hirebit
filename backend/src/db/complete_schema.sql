@@ -524,6 +524,43 @@ BEGIN
 END $$;
 
 -- ============================================================================
+-- USER PREFERENCES TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS user_preferences (
+  preference_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  email_notifications boolean DEFAULT true,
+  report_notifications boolean DEFAULT true,
+  application_notifications boolean DEFAULT true,
+  interview_reminders boolean DEFAULT true,
+  weekly_summary boolean DEFAULT true,
+  auto_generate_reports boolean DEFAULT true,
+  notification_frequency text DEFAULT 'realtime' CHECK (notification_frequency IN ('realtime', 'hourly', 'daily', 'weekly')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_preferences_user ON user_preferences(user_id);
+
+-- Function to update updated_at
+CREATE OR REPLACE FUNCTION update_user_preferences_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger for updated_at
+DROP TRIGGER IF EXISTS trg_user_preferences_updated_at ON user_preferences;
+CREATE TRIGGER trg_user_preferences_updated_at
+  BEFORE UPDATE ON user_preferences
+  FOR EACH ROW
+  EXECUTE FUNCTION update_user_preferences_updated_at();
+
+-- ============================================================================
 -- INITIAL ADMIN USER
 -- ============================================================================
 

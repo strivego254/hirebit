@@ -776,12 +776,26 @@ export const Calendar = ({
                   const isEnd = value?.end && isSameDay(dayItem, value.end)
                   const currentHover =
                     hoverDate && isSelecting && isSameDay(dayItem, hoverDate)
-                  const isInRange =
-                    value?.start &&
-                    ((value.end &&
-                      isWithinInterval(dayItem, { start: value.start, end: value.end })) ||
-                      (hoverDate &&
-                        isWithinInterval(dayItem, { start: value.start, end: hoverDate })))
+                  
+                  // Safely check if date is in range, ensuring valid intervals
+                  let isInRange = false
+                  if (value?.start) {
+                    if (value.end && value.start <= value.end) {
+                      try {
+                        isInRange = isWithinInterval(dayItem, { start: value.start, end: value.end })
+                      } catch {
+                        // Invalid interval, skip
+                        isInRange = false
+                      }
+                    } else if (hoverDate && value.start <= hoverDate) {
+                      try {
+                        isInRange = isWithinInterval(dayItem, { start: value.start, end: hoverDate })
+                      } catch {
+                        // Invalid interval, skip
+                        isInRange = false
+                      }
+                    }
+                  }
                   const isAllowedDate =
                     (minValue ? dayItem >= minValue : true) &&
                     (maxValue ? dayItem <= maxValue : true)

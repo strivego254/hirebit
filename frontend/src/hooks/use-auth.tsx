@@ -1,11 +1,12 @@
 'use client'
 
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
 
 interface AuthUser {
   email: string
   id?: string
   created_at?: string
+  role?: string
 }
 
 interface AuthContextType {
@@ -20,7 +21,62 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<null | AuthUser>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true) // Start as true to check token on mount
+
+  // Check for existing token on mount and fetch full user profile
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        // Try to decode token to get basic user info
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        if (payload.sub && payload.email) {
+          // Set basic user info immediately
+          setUser({
+            email: payload.email,
+            id: payload.sub
+          })
+
+          // Fetch full user profile from backend
+          const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+          const resp = await fetch(`${backendUrl}/api/user/me`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+
+          if (resp.ok) {
+            const userData = await resp.json()
+            setUser({
+              email: userData.email,
+              id: userData.id || userData.user_id,
+              created_at: userData.created_at,
+              role: userData.role
+            })
+          } else if (resp.status === 401) {
+            // Token invalid, remove it
+            localStorage.removeItem('token')
+            setUser(null)
+          }
+        }
+      } catch (e) {
+        // Invalid token, remove it
+        console.error('Error loading user profile:', e)
+        localStorage.removeItem('token')
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadUserProfile()
+  }, [])
 
   const signUp = async (email: string, password: string) => {
     try {
@@ -39,8 +95,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('token', data.token)
         setUser({ 
           email: email.toLowerCase(),
-          id: data?.user?.user_id,
-          created_at: data?.user?.created_at
+          id: data?.user?.id || data?.user?.user_id, // Support both formats
+          created_at: data?.user?.created_at,
+          role: data?.user?.role
         })
       }
       return { error: null }
@@ -71,7 +128,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (data?.token) {
         localStorage.setItem('token', data.token)
-        setUser({ email })
+        setUser({ 
+          email: email.toLowerCase(),
+          id: data?.user?.id || data?.user?.user_id, // Support both formats
+          created_at: data?.user?.created_at,
+          role: data?.user?.role
+        })
       }
       return { error: null }
     } catch (err) {

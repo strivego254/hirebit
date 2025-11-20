@@ -31,8 +31,17 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Check if user is admin
+    if (user && user.role !== 'admin') {
+      router.push('/dashboard')
+      return
+    }
+    if (!user) {
+      router.push('/auth/signin')
+      return
+    }
     loadStats()
-  }, [])
+  }, [user, router])
 
   const loadStats = async () => {
     try {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { useAuth } from '@/hooks/use-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Building2, Briefcase, FileText } from 'lucide-react'
@@ -26,15 +27,25 @@ interface CompanyDetails {
 export default function CompanyDetailsPage() {
   const router = useRouter()
   const params = useParams()
+  const { user } = useAuth()
   const companyId = params.companyId as string
   const [data, setData] = useState<CompanyDetails | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Check if user is admin
+    if (user && user.role !== 'admin') {
+      router.push('/dashboard')
+      return
+    }
+    if (!user) {
+      router.push('/auth/signin')
+      return
+    }
     if (companyId) {
       loadCompanyDetails()
     }
-  }, [companyId])
+  }, [companyId, user, router])
 
   const loadCompanyDetails = async () => {
     try {
