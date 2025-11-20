@@ -84,8 +84,11 @@ export default function CompanySetupPage() {
   }
 
   const onSubmit = async (data: CompanySetupFormData) => {
-    if (!user) {
-      setError('You must be logged in to continue')
+    // Check if user is logged in (token exists)
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    if (!token && !user) {
+      setError('You must be logged in to continue. Please sign in first.')
+      router.push('/auth/signin')
       return
     }
 
@@ -130,9 +133,12 @@ export default function CompanySetupPage() {
         throw new Error(jobJson?.error || 'Failed to create job posting')
       }
 
+      // Success - redirect to dashboard
       router.push('/dashboard')
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred. Please try again.')
+      const errorMessage = err?.message || err?.error || 'An unexpected error occurred. Please try again.'
+      setError(errorMessage)
+      console.error('Company setup error:', err)
     } finally {
       setIsLoading(false)
     }

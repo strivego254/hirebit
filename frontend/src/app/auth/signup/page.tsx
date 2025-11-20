@@ -47,13 +47,18 @@ export default function SignUpPage() {
       
       if (error) {
         setError(error.message)
-      } else {
-        // Redirect to company setup or dashboard
-        router.push('/company-setup')
+        setIsLoading(false)
+        return
       }
+      
+      // Small delay to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // Redirect to dashboard directly (user can set up company later from dashboard)
+      router.push('/dashboard')
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.')
-    } finally {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.'
+      setError(errorMessage)
       setIsLoading(false)
     }
   }

@@ -489,6 +489,41 @@ COMMENT ON COLUMN job_postings.status IS 'Job posting status: ACTIVE, CLOSED, DR
 COMMENT ON COLUMN reports.report_type IS 'Type of report: post_deadline, weekly, monthly, etc.';
 
 -- ============================================================================
+-- ENSURE ROLE AND IS_ACTIVE COLUMNS EXIST
+-- ============================================================================
+-- Add role and is_active columns if they don't exist (for existing databases)
+DO $$ 
+BEGIN
+  -- Add role column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'users' 
+    AND column_name = 'role'
+  ) THEN
+    ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user';
+    CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+    RAISE NOTICE 'Added role column to users table';
+  END IF;
+
+  -- Add is_active column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'users' 
+    AND column_name = 'is_active'
+  ) THEN
+    ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT true;
+    CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
+    RAISE NOTICE 'Added is_active column to users table';
+  END IF;
+
+  -- Update existing users to have default values
+  UPDATE users SET role = COALESCE(role, 'user') WHERE role IS NULL;
+  UPDATE users SET is_active = COALESCE(is_active, true) WHERE is_active IS NULL;
+END $$;
+
+-- ============================================================================
 -- INITIAL ADMIN USER
 -- ============================================================================
 

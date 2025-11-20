@@ -24,21 +24,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     try {
-    setLoading(true)
-      const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/signup`, {
+      setLoading(true)
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
+      const resp = await fetch(`${backendUrl}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       })
       const data = await resp.json().catch(() => ({}))
       if (!resp.ok) {
-        return { error: { message: data?.error || 'Sign up failed' } }
+        return { error: { message: data?.error || data?.details || 'Sign up failed' } }
       }
       if (data?.token) {
         localStorage.setItem('token', data.token)
-        setUser({ email })
+        setUser({ 
+          email: email.toLowerCase(),
+          id: data?.user?.user_id,
+          created_at: data?.user?.created_at
+        })
       }
       return { error: null }
+    } catch (err) {
+      // Network error or other fetch errors
+      const errorMessage = err instanceof Error ? err.message : 'Network error'
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        return { error: { message: 'Cannot connect to server. Please ensure the backend is running on port 3001.' } }
+      }
+      return { error: { message: errorMessage } }
     } finally {
       setLoading(false)
     }
