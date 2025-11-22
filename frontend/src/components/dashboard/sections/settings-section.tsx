@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { supabase } from '@/lib/supabase'
-import { WebhookTest } from '../webhook-test'
+// import { WebhookTest } from '../webhook-test' // Removed - file not found
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -544,7 +544,7 @@ export function SettingsSection() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <WebhookTest />
+          {/* <WebhookTest /> */}
         </CardContent>
       </Card>
     </div>

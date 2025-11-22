@@ -218,18 +218,6 @@ export function EditJobModal({ isOpen, onClose, jobPosting, onSave }: EditJobMod
                     </h3>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="interview_date">Interview Date & Time</Label>
-                      <Input
-                        id="interview_date"
-                        type="datetime-local"
-                        value={formData.interview_date ? new Date(formData.interview_date).toISOString().slice(0, 16) : ''}
-                        onChange={(e) => handleInputChange('interview_date', e.target.value)}
-                        required
-                        className="text-gray-900 dark:text-white dark:bg-gray-800 focus-visible:ring-[#2D2DDD] hover:border-[#2D2DDD]/50 focus-visible:border-[#2D2DDD]"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
                       <Label htmlFor="interview_meeting_link">Meeting Link (Optional)</Label>
                       <Input
                         id="interview_meeting_link"

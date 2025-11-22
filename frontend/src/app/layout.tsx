@@ -9,13 +9,11 @@ import { CookieProvider } from '@/components/providers/cookie-provider'
 
 const figtree = Figtree({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
+  weight: ['300'],
   variable: '--font-figtree',
   display: 'swap',
   preload: true,
-  fallback: ['system-ui', 'arial'],
-  // Optimize font loading
-  adjustFontFallback: true,
+  adjustFontFallback: false,
 })
 
 // Get metadata base URL - prioritize NEXT_PUBLIC_APP_URL, then VERCEL_URL, fallback to localhost
@@ -72,10 +70,6 @@ export default function RootLayout({
     <html lang="en" className={figtree.variable} suppressHydrationWarning>
       <head>
         {/* Preload critical resources */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="//fonts.googleapis.com" />
-        <link rel="dns-prefetch" href="//fonts.gstatic.com" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
         {/* Prefetch critical routes */}
         <link rel="prefetch" href="/auth/signin" />

@@ -10,6 +10,8 @@ import { useAuth } from '@/hooks/use-auth'
 import { JobPosting } from '@/types'
 
 interface InterviewData extends JobPosting {
+  interview_date?: string
+  google_calendar_link?: string
   applicantCount: number
   upcomingInterviews: number
   applicantStats: {
@@ -108,7 +110,7 @@ export function InterviewsSection() {
   }
 
   const upcomingInterviews = interviews.filter(interview => 
-    new Date(interview.interview_date) > new Date()
+    interview.interview_date && new Date(interview.interview_date) > new Date()
   )
 
   return (
@@ -216,6 +218,7 @@ export function InterviewsSection() {
               ) : (
                 <div className="space-y-4">
                   {upcomingInterviews.map((interview, index) => {
+                    if (!interview.interview_date) return null
                     const dateInfo = formatInterviewDate(interview.interview_date)
                     return (
                       <motion.div
@@ -264,7 +267,7 @@ export function InterviewsSection() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => window.open(interview.google_calendar_link, '_blank')}
+                                    onClick={() => interview.google_calendar_link && window.open(interview.google_calendar_link, '_blank')}
                                     className="bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD]/90 hover:border-[#2D2DDD]/90 dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD]/90 w-full sm:w-auto"
                                   >
                                     <ExternalLink className="w-4 h-4 mr-1" />

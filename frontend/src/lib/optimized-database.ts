@@ -80,9 +80,9 @@ export class OptimizedDatabaseService {
         p_job_title: jobData.job_title,
         p_job_description: jobData.job_description,
         p_required_skills: jobData.required_skills,
-        p_interview_date: jobData.interview_date,
+        p_interview_date: null,
         p_interview_meeting_link: jobData.interview_meeting_link || null,
-        p_google_calendar_link: jobData.google_calendar_link,
+        p_google_calendar_link: null,
         p_status: 'active'
       })
 

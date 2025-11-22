@@ -20,7 +20,6 @@ export function ShinyButton({ children, onClick, className = "", href }: ShinyBu
   return (
     <>
       <style jsx>{`
-        @import url("https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,500&display=swap");
 
         @property --gradient-angle {
           syntax: "<angle>";
@@ -64,10 +63,10 @@ export function ShinyButton({ children, onClick, className = "", href }: ShinyBu
           outline-offset: 4px;
           padding: 0.75rem 1.5rem;
           height: 3rem;
-          font-family: var(--font-figtree), "Inter", sans-serif;
+          font-family: var(--font-figtree), "Figtree", sans-serif;
           font-size: 0.875rem;
           line-height: 1.2;
-          font-weight: 500;
+          font-weight: 200;
           border: 1px solid transparent;
           border-radius: 360px;
           color: var(--shiny-cta-fg);

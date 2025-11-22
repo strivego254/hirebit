@@ -78,14 +78,6 @@ export function JobDetailsModal({ isOpen, onClose, jobPosting, onEdit }: JobDeta
                       <Edit className="w-4 h-4 text-white" />
                       Edit
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => window.open(jobPosting.google_calendar_link, '_blank')}
-                      className="flex items-center gap-2 bg-[#2D2DDD] text-white border-[#2D2DDD] hover:bg-[#2D2DDD]/90 hover:border-[#2D2DDD]/90 dark:bg-[#2D2DDD] dark:text-white dark:border-[#2D2DDD] dark:hover:bg-[#2D2DDD]/90"
-                    >
-                      <ExternalLink className="w-4 h-4 text-white" />
-                      View Calendar
-                    </Button>
                   </div>
                 </div>
 
@@ -130,17 +122,17 @@ export function JobDetailsModal({ isOpen, onClose, jobPosting, onEdit }: JobDeta
                   )}
 
                   {jobPosting.interview_start_time && (
-                    <Card className="bg-gray-50">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-3 mb-3">
-                          <Calendar className="w-5 h-5 text-[#2D2DDD]" />
+                  <Card className="bg-gray-50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Calendar className="w-5 h-5 text-[#2D2DDD]" />
                           <h3 className="font-figtree font-semibold">Interview Start Time</h3>
-                        </div>
-                        <p className="text-gray-700 dark:text-gray-200 font-figtree font-light">
+                      </div>
+                      <p className="text-gray-700 dark:text-gray-200 font-figtree font-light">
                           {formatDateTime(jobPosting.interview_start_time)}
-                        </p>
-                      </CardContent>
-                    </Card>
+                      </p>
+                    </CardContent>
+                  </Card>
                   )}
 
                   {jobPosting.interview_meeting_link && (

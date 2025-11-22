@@ -53,7 +53,8 @@
   
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-figtree), 'Figtree';
+    font-family: var(--font-figtree), 'Figtree', sans-serif;
+    font-weight: 200;
     /* Performance optimizations */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -63,9 +64,10 @@
     text-rendering: optimizeLegibility;
   }
   
-  /* Ensure Figtree font is applied to all text elements */
+  /* Ensure Figtree 200 light font is applied to all text elements */
   h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select, label {
-    font-family: var(--font-figtree), 'Figtree';
+    font-family: var(--font-figtree), 'Figtree', sans-serif;
+    font-weight: 200;
   }
   
   /* All headings use the same size and weight as hero section - but allow component-level overrides */

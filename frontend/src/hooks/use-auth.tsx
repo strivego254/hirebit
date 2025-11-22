@@ -107,8 +107,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (username: string, name: string, email: string, password: string, company_role: string, organization_name: string, company_email: string, hr_email: string, hiring_manager_email: string) => {
     try {
       setLoading(true)
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
-      const resp = await fetch(`${backendUrl}/auth/signup`, {
+      // Use Next.js API route instead of external backend
+      const resp = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Network error or other fetch errors
       const errorMessage = err instanceof Error ? err.message : 'Network error'
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-        return { error: { message: 'Cannot connect to server. Please ensure the backend is running on port 3001.' } }
+        return { error: { message: 'Cannot connect to server. Please check your internet connection and try again.' } }
       }
       return { error: { message: errorMessage } }
     } finally {
@@ -198,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Network error or other fetch errors
       const errorMessage = err instanceof Error ? err.message : 'Network error'
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-        return { error: { message: 'Cannot connect to server. Please ensure the backend is running on port 3001.' } }
+        return { error: { message: 'Cannot connect to server. Please check your internet connection and try again.' } }
       }
       return { error: { message: errorMessage } }
     } finally {

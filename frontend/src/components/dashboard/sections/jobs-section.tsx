@@ -353,6 +353,7 @@ export function JobsSection() {
           job_description: jobData.job_description,
           required_skills: jobData.required_skills,
           interview_meeting_link: jobData.interview_meeting_link || null,
+          interview_start_time: null,
           application_deadline: jobData.application_deadline || null,
           status: 'active',
         n8n_webhook_sent: false,

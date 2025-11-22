@@ -79,7 +79,7 @@ export function RealCandidatesSection() {
       }
       
       // Transform data to match n8n candidate structure
-      const transformedCandidates: CandidateWithJob[] = candidatesData?.map(applicant => ({
+      const transformedCandidates: CandidateWithJob[] = candidatesData?.map((applicant: any) => ({
         candidate_name: applicant.name || 'Unknown',
         email: applicant.email,
         score: applicant.matching_score || 0,

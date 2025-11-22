@@ -13,7 +13,7 @@ interface User {
   user_id: string
   email: string
   role: string
-  is_active: boolean
+  is_active: boolean | null
   created_at: string
   admin_approval_status?: 'pending' | 'approved' | 'rejected' | null
   admin_permissions?: Record<string, boolean> | null
@@ -321,10 +321,10 @@ export default function AdminUsersPage() {
                             size="sm"
                             variant="outline"
                             onClick={() => updateUser(userItem.user_id, { is_active: !userItem.is_active })}
-                            disabled={isCurrentUser && !userItem.is_active}
-                            title={isCurrentUser && !userItem.is_active ? 'You cannot deactivate your own account' : ''}
+                            disabled={isCurrentUser ? !(userItem.is_active ?? true) : false}
+                            title={isCurrentUser && !(userItem.is_active ?? true) ? 'You cannot deactivate your own account' : ''}
                           >
-                            {userItem.is_active ? (
+                            {(userItem.is_active ?? true) ? (
                               <>
                                 <UserX className="h-4 w-4 mr-1" />
                                 Deactivate
@@ -340,7 +340,7 @@ export default function AdminUsersPage() {
                             size="sm"
                             variant="destructive"
                             onClick={() => deleteUser(userItem.user_id)}
-                            disabled={isCurrentUser}
+                            disabled={isCurrentUser ? true : false}
                             title={isCurrentUser ? 'You cannot delete your own account' : ''}
                           >
                             Delete

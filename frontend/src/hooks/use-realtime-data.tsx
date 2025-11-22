@@ -81,7 +81,7 @@ export function useApplicantsRealtime(onDataChange?: () => void) {
           schema: 'public',
           table: 'applicants'
         },
-        (payload) => {
+        (payload: any) => {
           console.log('Applicants real-time update:', payload)
           onDataChange?.()
         }
@@ -110,7 +110,7 @@ export function useAnalyticsRealtime(onDataChange?: () => void) {
           schema: 'public',
           table: 'recruitment_analytics'
         },
-        (payload) => {
+        (payload: any) => {
           console.log('Analytics real-time update:', payload)
           onDataChange?.()
         }
@@ -139,7 +139,7 @@ export function useJobsRealtime(onDataChange?: () => void) {
           schema: 'public',
           table: 'job_postings'
         },
-        (payload) => {
+        (payload: any) => {
           console.log('Jobs real-time update:', payload)
           onDataChange?.()
         }

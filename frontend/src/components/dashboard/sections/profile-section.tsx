@@ -738,7 +738,7 @@ export function ProfileSection() {
                   Password
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Last changed: {user?.updated_at ? new Date(user.updated_at).toLocaleDateString() : 'Never'}
+                  Click to change password
                 </p>
               </div>
               <Button
