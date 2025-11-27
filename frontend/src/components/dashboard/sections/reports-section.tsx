@@ -342,8 +342,7 @@ export function ReportsSection() {
                       <ComposedChart
                         data={chartData}
                         margin={{ top: 8, right: 40, bottom: 40, left: 16 }}
-                        categoryGap={isDesktop ? '5%' : '20%'}
-                        barCategoryGap="10%"
+                        barCategoryGap={isDesktop ? '5%' : '20%'}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.25)" vertical={false} />
                         <YAxis
@@ -398,16 +397,18 @@ export function ReportsSection() {
                           shape={(props: any) => {
                             // In Recharts, props contains the data point directly or in payload
                             const data = props.payload || props
-                            if (!data || !data.shortlisted || data.shortlisted === 0) return null
+                            const { x, y, width, height } = props
+                            
+                            // Return empty path if no data or zero height
+                            if (!data || !data.shortlisted || data.shortlisted === 0 || height === 0 || !height) {
+                              return <path d={`M ${x},${y} L ${x + width},${y} Z`} fill="transparent" />
+                            }
                             
                             // Shortlisted is always the bottom segment when it exists
                             const segmentCount = data._segmentCount || 
                               ([data.shortlisted > 0, data.flagged > 0, data.rejected > 0].filter(Boolean).length)
                             const isOnly = segmentCount === 1
                             const isBottom = segmentCount > 1
-                            
-                            const { x, y, width, height } = props
-                            if (height === 0 || !height) return null
                             
                             const r = 6
                             
@@ -455,7 +456,12 @@ export function ReportsSection() {
                           shape={(props: any) => {
                             // In Recharts, props contains the data point directly or in payload
                             const data = props.payload || props
-                            if (!data || !data.flagged || data.flagged === 0) return null
+                            const { x, y, width, height } = props
+                            
+                            // Return empty path if no data or zero height
+                            if (!data || !data.flagged || data.flagged === 0 || height === 0 || !height) {
+                              return <path d={`M ${x},${y} L ${x + width},${y} Z`} fill="transparent" />
+                            }
                             
                             // Flagged can be: only segment, top segment, or middle segment
                             const segmentCount = data._segmentCount || 
@@ -464,9 +470,6 @@ export function ReportsSection() {
                             const isOnly = segmentCount === 1
                             const isTop = segmentCount === 2 && !hasRejected
                             const isMiddle = segmentCount === 3
-                            
-                            const { x, y, width, height } = props
-                            if (height === 0 || !height) return null
                             
                             const r = 6
                             let path = ''
@@ -511,16 +514,18 @@ export function ReportsSection() {
                           shape={(props: any) => {
                             // In Recharts, props contains the data point directly or in payload
                             const data = props.payload || props
-                            if (!data || !data.rejected || data.rejected === 0) return null
+                            const { x, y, width, height } = props
+                            
+                            // Return empty path if no data or zero height
+                            if (!data || !data.rejected || data.rejected === 0 || height === 0 || !height) {
+                              return <path d={`M ${x},${y} L ${x + width},${y} Z`} fill="transparent" />
+                            }
                             
                             // Rejected is always the top segment when it exists
                             const segmentCount = data._segmentCount || 
                               ([data.shortlisted > 0, data.flagged > 0, data.rejected > 0].filter(Boolean).length)
                             const isOnly = segmentCount === 1
                             const isTop = segmentCount > 1
-                            
-                            const { x, y, width, height } = props
-                            if (height === 0 || !height) return null
                             
                             const r = 6
                             let path = ''

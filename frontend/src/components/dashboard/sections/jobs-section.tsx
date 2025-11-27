@@ -29,6 +29,7 @@ import { useJobsRealtime, useApplicantsRealtime, useAnalyticsRealtime } from '@/
 import { useRouter } from 'next/navigation'
 
 interface JobWithApplicants extends JobPosting {
+  job_posting_id?: string | number
   applicantStats: {
     total: number
     shortlisted: number
