@@ -59,7 +59,7 @@ const ToggleTheme = dynamic(
 )
 
 // Dynamically load Sidebar to prevent webpack errors
-const Sidebar = dynamic(
+const Sidebar = dynamic<{ activeSection: string; onSectionChange: (section: string) => void }>(
   () => import('./sidebar')
     .then((mod: any) => {
       if (!mod || typeof mod !== 'object') {
@@ -76,7 +76,7 @@ const Sidebar = dynamic(
       console.error('Error loading Sidebar module:', err)
       // Return a safe fallback
       return {
-        default: function SidebarFallback() {
+        default: function SidebarFallback({ activeSection, onSectionChange }: { activeSection: string; onSectionChange: (section: string) => void }) {
           return (
             <div className="w-64 bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 h-screen p-4">
               <p className="text-gray-600 dark:text-gray-400">Loading sidebar...</p>
