@@ -5,6 +5,10 @@ import { usePathname, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
+import { Toaster } from '@/components/ui/toaster'
+import { Bell, X, CheckCircle2 } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { NotificationProvider, useNotifications } from '@/contexts/notification-context'
 
 // Simple Error Boundary component
 class ErrorBoundary extends Component<{ children: ReactNode; fallback?: ReactNode }, { hasError: boolean }> {
@@ -262,7 +266,7 @@ const LazyProfileSection = dynamic(
   }
 )
 
-export function OptimizedDashboardLayout() {
+function DashboardContent() {
   const { user, loading } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
@@ -270,6 +274,8 @@ export function OptimizedDashboardLayout() {
   const [isPreloading, setIsPreloading] = useState(true)
   const [preloadTime, setPreloadTime] = useState<number>(0)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false)
+  const { notifications, markAsRead, markAllAsRead, removeNotification, unreadCount } = useNotifications()
 
   // STRICT: Check if user has company (except admin)
   useEffect(() => {
@@ -450,7 +456,7 @@ export function OptimizedDashboardLayout() {
       </div>
       
       <main className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-950 w-full lg:w-auto">
-        {/* Top Header with Theme Toggle */}
+        {/* Top Header with Theme Toggle and Notifications */}
         <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
           <div className="flex items-center justify-between p-4 md:p-6">
             <div className="lg:hidden">
@@ -464,8 +470,108 @@ export function OptimizedDashboardLayout() {
                 </svg>
               </button>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 ml-auto">
               <ToggleTheme />
+              
+              {/* Notifications Bell - Moved to far right */}
+              <Popover open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 w-10 p-0 relative border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    <Bell className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0 z-[100] bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl backdrop-blur-none" align="end">
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
+                      {notifications.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={markAllAsRead}
+                          className="h-8 text-xs text-[#2D2DDD] hover:text-[#2D2DDD] hover:bg-[#2D2DDD]/10"
+                        >
+                          Mark all as read
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="max-h-[400px] overflow-y-auto bg-white dark:bg-gray-900">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <Bell className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400">No notifications</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
+                              !notification.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`mt-1 flex-shrink-0 w-2 h-2 rounded-full ${
+                                notification.type === 'success' ? 'bg-green-500' :
+                                notification.type === 'error' ? 'bg-red-500' :
+                                notification.type === 'warning' ? 'bg-yellow-500' :
+                                'bg-blue-500'
+                              } ${notification.read ? 'opacity-50' : ''}`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1">
+                                    <p className={`text-sm font-medium text-gray-900 dark:text-white ${
+                                      notification.read ? 'opacity-60' : ''
+                                    }`}>
+                                      {notification.title}
+                                    </p>
+                                    <p className={`text-xs text-gray-600 dark:text-gray-400 mt-1 ${
+                                      notification.read ? 'opacity-60' : ''
+                                    }`}>
+                                      {notification.description}
+                                    </p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                      {notification.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                  {!notification.read && (
+                                    <button
+                                      onClick={() => markAsRead(notification.id)}
+                                      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                                      title="Mark as read"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4 text-gray-400" />
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => removeNotification(notification.id)}
+                                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                                    title="Dismiss"
+                                  >
+                                    <X className="w-4 h-4 text-gray-400" />
+                                  </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>
@@ -475,6 +581,17 @@ export function OptimizedDashboardLayout() {
           </ErrorBoundary>
         </div>
       </main>
+      
+      {/* Toast Notification System */}
+      <Toaster />
     </div>
+  )
+}
+
+export function OptimizedDashboardLayout() {
+  return (
+    <NotificationProvider>
+      <DashboardContent />
+    </NotificationProvider>
   )
 }

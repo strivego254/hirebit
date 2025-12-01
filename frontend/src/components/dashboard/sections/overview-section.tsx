@@ -24,6 +24,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/hooks/use-toast'
+import { useNotifications } from '@/contexts/notification-context'
 import {
   ApplicantMetricsSlice,
   EMPTY_APPLICANT_METRICS,
@@ -69,6 +71,8 @@ const fetchApplicantsAggregateForJobs = async (jobIds: string[]) => {
 export function OverviewSection() {
   const { user } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
+  const { addNotification } = useNotifications()
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     activeJobs: 0,
     totalJobs: 0,
@@ -219,15 +223,42 @@ export function OverviewSection() {
         ...jobApplicants,
       })
 
+      // Show success notification if jobs were loaded
+      if (normalizedJobs.length > 0 && !preserveSelection) {
+        addNotification({
+          title: 'Dashboard updated',
+          description: `Loaded ${normalizedJobs.length} job${normalizedJobs.length !== 1 ? 's' : ''} successfully`,
+          type: 'success',
+        })
+        
+        toast({
+          title: 'Dashboard updated',
+          description: `Loaded ${normalizedJobs.length} job${normalizedJobs.length !== 1 ? 's' : ''} successfully`,
+          variant: 'success',
+        })
+      }
+
       // Skip analytics loading if no jobs
       setIsLoadingAnalytics(false)
     } catch (err) {
       console.error('Error loading dashboard metrics:', err)
       setError('Failed to load dashboard metrics')
+      
+      addNotification({
+        title: 'Error loading dashboard',
+        description: err instanceof Error ? err.message : 'Failed to load dashboard metrics. Please try again.',
+        type: 'error',
+      })
+      
+      toast({
+        title: 'Error loading dashboard',
+        description: err instanceof Error ? err.message : 'Failed to load dashboard metrics. Please try again.',
+        variant: 'error',
+      })
     } finally {
       setIsLoading(false)
     }
-  }, [user]) // Removed selectedJobId from dependencies to prevent re-runs on selection change
+  }, [user, toast]) // Removed selectedJobId from dependencies to prevent re-runs on selection change
 
   // Handle job selection change
   const handleJobSelect = useCallback((jobId: string) => {
@@ -282,6 +313,19 @@ export function OverviewSection() {
         ...prev,
         ...jobApplicants,
       }))
+      
+      // Show notification when job is selected
+      addNotification({
+        title: 'Job selected',
+        description: `Viewing analytics for "${selectedJob.job_title}"`,
+        type: 'info',
+      })
+      
+      toast({
+        title: 'Job selected',
+        description: `Viewing analytics for "${selectedJob.job_title}"`,
+        variant: 'info',
+      })
       
       loadJobAnalytics(normalizedJobId)
     } else {

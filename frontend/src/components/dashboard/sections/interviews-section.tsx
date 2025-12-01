@@ -70,7 +70,9 @@ export function InterviewsSection() {
         }
 
         const data = await response.json()
+        console.log('📅 Interviews API response:', data)
         const scheduledInterviews = data.interviews || []
+        console.log('📅 Scheduled interviews count:', scheduledInterviews.length)
         
         // Transform scheduled interviews to InterviewData format
         const interviewsData: InterviewData[] = scheduledInterviews.map((interview: any) => ({

@@ -5,37 +5,47 @@ import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { GradientCard } from '@/components/ui/gradient-card'
 import dynamic from 'next/dynamic'
-import { useRef } from 'react'
+import { useRef, Suspense } from 'react'
 
 // Lazy load heavy components for better performance
-const Animated3DShape = dynamic(() => import('@/components/ui/animated-3d-shape').then(mod => ({ default: mod.default })), {
+const Animated3DShape = dynamic(() => import('@/components/ui/animated-3d-shape'), {
   ssr: false,
+  loading: () => null,
 })
 
-const PricingSection = dynamic(() => import('@/components/ui/pricing-section').then(mod => ({ default: mod.default })), {
+const PricingSection = dynamic(() => import('@/components/ui/pricing-section'), {
   ssr: true,
+  loading: () => (
+    <div className="min-h-[600px] bg-black flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  ),
 })
 
-const FinalCTASection = dynamic(() => import('@/components/ui/final-cta-section').then(mod => ({ default: mod.default })), {
+const FinalCTASection = dynamic(() => import('@/components/ui/final-cta-section'), {
   ssr: false,
+  loading: () => null,
 })
 
-const HowItWorksCards = dynamic(() => import('@/components/ui/how-it-works-cards').then(mod => ({ default: mod.default })), {
+const HowItWorksCards = dynamic(() => import('@/components/ui/how-it-works-cards'), {
   ssr: false,
-  loading: () => <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 w-full">
-    {[1, 2, 3, 4].map((i) => (
-      <div key={i} className="h-[400px] bg-neutral-800/50 rounded-[32px] animate-pulse" />
-    ))}
-  </div>,
+  loading: () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 w-full py-20">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="h-[400px] bg-neutral-800/50 rounded-[32px] animate-pulse" />
+      ))}
+    </div>
+  ),
 })
 
-const StackingCardComponent = dynamic(() => import('@/components/ui/stacking-card').then(mod => ({ default: mod.default })), {
+const StackingCardComponent = dynamic(() => import('@/components/ui/stacking-card'), {
   ssr: false,
-  loading: () => <div className="h-screen bg-slate-950 animate-pulse" />,
+  loading: () => <div className="min-h-screen bg-slate-950 animate-pulse" />,
 })
 
-const PricingBackground = dynamic(() => import('@/components/ui/pricing-background').then(mod => ({ default: mod.default })), {
+const PricingBackground = dynamic(() => import('@/components/ui/pricing-background'), {
   ssr: false,
+  loading: () => null,
 })
 
 // Shader background is a client component that mounts in useEffect; import directly to avoid chunk delays
@@ -160,7 +170,9 @@ export default function HomePageContent() {
   return (
     <>
       {/* Animated 3D Background Shape for Content Sections */}
-      <Animated3DShape className="opacity-30" />
+      <Suspense fallback={null}>
+        <Animated3DShape className="opacity-30" />
+      </Suspense>
       
       {/* Enhanced Features Section with Gradient Cards */}
       <section className="py-20 px-4 relative bg-black">
@@ -202,7 +214,9 @@ export default function HomePageContent() {
       {/* Industry Solutions Section */}
       <section className="py-20 px-4 relative overflow-hidden bg-black min-h-screen">
         <div ref={backgroundRef} className="absolute inset-0 w-full h-full">
-          <PricingBackground backgroundRef={backgroundRef} />
+          <Suspense fallback={null}>
+            <PricingBackground backgroundRef={backgroundRef} />
+          </Suspense>
         </div>
         <div className="container mx-auto max-w-6xl relative z-10">
           <motion.div
@@ -251,7 +265,8 @@ export default function HomePageContent() {
 
       {/* Business Benefits Section - Stacking Cards */}
       <div className="hidden md:block">
-        <StackingCardComponent
+        <Suspense fallback={<div className="min-h-screen bg-slate-950 animate-pulse" />}>
+          <StackingCardComponent
           projects={businessBenefits.map((benefit) => {
             // Map colors by title as specified
             const colorMap: Record<string, string> = {
@@ -280,7 +295,8 @@ export default function HomePageContent() {
           })}
           heading="Measurable Business Impact"
           subheading="See the real impact on your bottom line with our comprehensive ROI tracking and analytics."
-        />
+          />
+        </Suspense>
       </div>
 
       
@@ -306,17 +322,33 @@ export default function HomePageContent() {
             </p>
           </motion.div>
 
-          <HowItWorksCards />
+          <Suspense fallback={
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8 w-full py-20">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-[400px] bg-neutral-800/50 rounded-[32px] animate-pulse" />
+              ))}
+            </div>
+          }>
+            <HowItWorksCards />
+          </Suspense>
         </div>
       </section>
 
       {/* Pricing Section */}
       <section className="relative bg-black overflow-hidden pb-8 sm:pb-12 md:pb-16">
-        <PricingSection />
+        <Suspense fallback={
+          <div className="min-h-[600px] bg-black flex items-center justify-center">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        }>
+          <PricingSection />
+        </Suspense>
       </section>
 
       {/* Final CTA Section */}
-      <FinalCTASection />
+      <Suspense fallback={null}>
+        <FinalCTASection />
+      </Suspense>
     </>
   )
 }

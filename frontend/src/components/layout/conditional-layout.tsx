@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { Navbar } from '@/components/navigation/navbar'
 import { Footer } from '@/components/footer/footer'
 
@@ -10,9 +11,26 @@ interface ConditionalLayoutProps {
 
 export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname()
-  const isDashboard = pathname.startsWith('/dashboard')
-  const isAuth = pathname.startsWith('/auth')
-  const isAdmin = pathname.startsWith('/admin')
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // During SSR, always show navbar/footer to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <>
+        <Navbar />
+        <main className="pt-0">{children}</main>
+        <Footer />
+      </>
+    )
+  }
+
+  const isDashboard = pathname?.startsWith('/dashboard') || false
+  const isAuth = pathname?.startsWith('/auth') || false
+  const isAdmin = pathname?.startsWith('/admin') || false
 
   // Hide navbar and footer for dashboard, auth, and admin pages
   if (isDashboard || isAuth || isAdmin) {

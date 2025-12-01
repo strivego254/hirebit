@@ -628,7 +628,7 @@ export function JobsSection() {
               </Button>
             </motion.div>
           ) : (
-            jobs.map((job, index) => (
+            jobs.map((job: JobWithApplicants, index) => (
           <motion.div
             key={job.id}
             initial={{ opacity: 0, y: 20 }}
@@ -682,9 +682,11 @@ export function JobsSection() {
                       onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
-                        const jobId = String(job.id || job.job_posting_id)
+                        const jobId = String(job.id || job.job_posting_id || '')
                         console.log('Navigating to candidates for job:', jobId)
-                        router.push(`/dashboard/job/${jobId}/shortlisted`)
+                        if (jobId) {
+                          router.push(`/dashboard/job/${jobId}/shortlisted`)
+                        }
                       }}
                       className="bg-[#2D2DDD] text-white hover:bg-[#2D2DDD] w-full shadow-none hover:shadow-none"
                     >

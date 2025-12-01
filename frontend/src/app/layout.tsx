@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider'
 import { ConditionalLayout } from '@/components/layout/conditional-layout'
 import { CookieConsent } from '@/components/ui/cookie-consent'
 import { CookieProvider } from '@/components/providers/cookie-provider'
+import { ErrorBoundary } from '@/components/ui/error-boundary'
 
 const figtree = Figtree({
   subsets: ['latin'],
@@ -75,14 +76,16 @@ export default function RootLayout({
         <link rel="prefetch" href="/auth/signin" />
         <link rel="prefetch" href="/auth/signup" />
       </head>
-      <body className={`${figtree.className} antialiased bg-background text-foreground`}>
+      <body className={`${figtree.className} antialiased bg-background text-foreground`} suppressHydrationWarning>
         <ThemeProvider>
           <CookieProvider>
             <AuthProvider>
-              <div className="min-h-screen bg-background">
-                <ConditionalLayout>{children}</ConditionalLayout>
-                <CookieConsent />
-              </div>
+              <ErrorBoundary>
+                <div className="min-h-screen bg-background">
+                  <ConditionalLayout>{children}</ConditionalLayout>
+                  <CookieConsent />
+                </div>
+              </ErrorBoundary>
             </AuthProvider>
           </CookieProvider>
         </ThemeProvider>

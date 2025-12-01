@@ -50,7 +50,7 @@ export async function getScheduledInterviews(req: any, res: Response) {
       return res.status(404).json({ error: 'Company not found' })
     }
 
-    // Get all scheduled interviews for this company
+    // Get all scheduled interviews for this company (including past ones)
     const { rows } = await query<{
       application_id: string
       candidate_name: string
@@ -75,13 +75,22 @@ export async function getScheduledInterviews(req: any, res: Response) {
       INNER JOIN companies c ON a.company_id = c.company_id
       WHERE a.company_id = $1 
         AND a.interview_time IS NOT NULL
-        AND a.interview_time > NOW()
-        AND a.interview_status = 'SCHEDULED'
+        AND (a.interview_status = 'SCHEDULED' OR a.interview_status IS NULL)
       ORDER BY a.interview_time ASC`,
       [companyId]
     )
 
-    logger.info(`Found ${rows.length} scheduled interviews for company ${companyId}`)
+    logger.info(`Found ${rows.length} scheduled interviews for company ${companyId}`, {
+      companyId,
+      userId,
+      userEmail,
+      interviews: rows.map(r => ({
+        id: r.application_id,
+        candidate: r.candidate_name,
+        time: r.interview_time,
+        job: r.job_title
+      }))
+    })
 
     return res.status(200).json({
       success: true,

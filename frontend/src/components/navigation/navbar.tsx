@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
@@ -21,9 +21,17 @@ const navigation = [
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Prevent hydration mismatch by not rendering user-dependent UI until mounted
+  const showUserButton = mounted && user
 
   return (
     <header className="fixed top-6 left-0 right-0 z-30 px-4 md:px-6">
@@ -75,7 +83,7 @@ export function Navbar() {
 
         {/* CTA buttons */}
         <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4 lg:items-center">
-          {user ? (
+          {showUserButton ? (
             <GradientButton
               onClick={() => router.push('/dashboard')}
               showArrow={false}
@@ -145,7 +153,7 @@ export function Navbar() {
                   ))}
                 </div>
                 <div className="py-6">
-                  {user ? (
+                  {showUserButton ? (
                     <div className="flex justify-center">
                       <GradientButton
                         onClick={() => {

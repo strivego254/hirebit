@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { Button2 } from './button-2';
 import { ShinyButton } from './shiny-button';
 import { Canvas, useFrame, extend } from '@react-three/fiber';
@@ -197,12 +197,21 @@ function ShaderPlane() {
 function ShaderBackground() {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [dpr, setDpr] = useState(1);
+  const [mounted, setMounted] = useState(false);
   
   const camera = useMemo(() => ({ position: [0, 0, 1] as [number, number, number], fov: 75, near: 0.1, far: 1000 }), []);
   
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== 'undefined') {
+      setDpr(Math.min(window.devicePixelRatio, 2));
+    }
+  }, []);
+  
   useGSAP(
     () => {
-      if (!containerRef.current) return;
+      if (!containerRef.current || !mounted) return;
       
       gsap.set(containerRef.current, {
         opacity: 0.7
@@ -221,33 +230,35 @@ function ShaderBackground() {
         tween.kill();
       };
     },
-    { scope: containerRef, dependencies: [] }
+    { scope: containerRef, dependencies: [mounted] }
   );
   
+  // Always render the same structure to prevent hydration mismatch
   return (
     <div ref={containerRef} className="bg-black absolute inset-0 -z-10 w-full h-full" aria-hidden>
       <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-blue-900/20 to-pink-900/20" />
-      <div ref={canvasRef} className="absolute inset-0 w-full h-full">
-        <Canvas
-          camera={camera}
-          dpr={typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2) : 1}
-          frameloop="always"
-          performance={{ min: 0.5, max: 1, debounce: 200 }}
-          gl={{ 
-            antialias: true, 
-            alpha: false,
-            powerPreference: "high-performance",
-            stencil: false,
-            depth: true,
-            preserveDrawingBuffer: false,
-            // Optimize for continuous rendering
-            failIfMajorPerformanceCaveat: false,
-          }}
-          style={{ width: '100%', height: '100%', display: 'block' }}
-        >
-          <ShaderPlane />
-        </Canvas>
-      </div>
+      {mounted && (
+        <div ref={canvasRef} className="absolute inset-0 w-full h-full">
+          <Canvas
+            camera={camera}
+            dpr={dpr}
+            frameloop="always"
+            performance={{ min: 0.5, max: 1, debounce: 200 }}
+            gl={{ 
+              antialias: true, 
+              alpha: false,
+              powerPreference: "high-performance",
+              stencil: false,
+              depth: true,
+              preserveDrawingBuffer: false,
+              failIfMajorPerformanceCaveat: false,
+            }}
+            style={{ width: '100%', height: '100%', display: 'block' }}
+          >
+            <ShaderPlane />
+          </Canvas>
+        </div>
+      )}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/20" />
     </div>
   );

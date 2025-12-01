@@ -77,6 +77,7 @@ const nextConfig = {
       }
     }
 
+
     // Suppress specific warnings at the compilation level
     config.infrastructureLogging = {
       level: 'error',
@@ -101,41 +102,64 @@ const nextConfig = {
       })
     }
 
-    // Optimize bundle splitting
+    // Optimize bundle splitting - ensure framework loads reliably
     if (!isServer) {
       config.optimization = {
         ...config.optimization,
         splitChunks: {
           chunks: 'all',
+          maxInitialRequests: 25,
+          minSize: 20000,
           cacheGroups: {
             default: false,
             vendors: false,
-            // Vendor chunk for large libraries
-            vendor: {
-              name: 'vendor',
+            // Framework chunk - must be highest priority to ensure it loads first
+            framework: {
               chunks: 'all',
-              test: /node_modules/,
-              priority: 20,
+              name: 'framework',
+              test: /[\\/]node_modules[\\/](react|react-dom|scheduler|object-assign)[\\/]/,
+              priority: 40,
+              enforce: true,
+              reuseExistingChunk: true,
+            },
+            // Next.js framework chunk
+            nextjs: {
+              chunks: 'all',
+              name: 'nextjs',
+              test: /[\\/]node_modules[\\/]next[\\/]/,
+              priority: 35,
+              enforce: true,
             },
             // Separate chunk for Three.js (large library)
             three: {
               name: 'three',
               test: /[\\/]node_modules[\\/](three|@react-three)[\\/]/,
-              chunks: 'all',
+              chunks: 'async',
               priority: 30,
+              minChunks: 1,
             },
             // Separate chunk for Framer Motion
             framer: {
               name: 'framer',
               test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
-              chunks: 'all',
+              chunks: 'async',
               priority: 25,
+              minChunks: 1,
+            },
+            // Vendor chunk for large libraries (async to prevent blocking)
+            vendor: {
+              name: 'vendor',
+              chunks: 'async',
+              test: /[\\/]node_modules[\\/]/,
+              priority: 20,
+              minChunks: 2,
+              reuseExistingChunk: true,
             },
             // Common chunk for shared code
             common: {
               name: 'common',
               minChunks: 2,
-              chunks: 'all',
+              chunks: 'async',
               priority: 10,
               reuseExistingChunk: true,
             },
