@@ -48,7 +48,6 @@ export function Navbar() {
                 className="h-12 w-12 md:h-14 md:w-14 object-contain"
                 priority
               />
-              <span className="hidden sm:block text-white text-lg font-medium font-figtree">HR AI Agent</span>
             </div>
           </Link>
         </div>
@@ -125,7 +124,6 @@ export function Navbar() {
                     className="h-12 w-12 object-contain"
                     priority
                   />
-                  <span className="text-gray-900 dark:text-white text-lg font-medium font-figtree">HR AI Agent</span>
                 </div>
               </Link>
               <button
