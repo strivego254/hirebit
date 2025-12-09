@@ -81,7 +81,7 @@ export function Footer() {
           <div className="flex flex-col space-y-4 md:col-span-3 lg:col-span-1">
             <div className="flex items-center space-x-3">
               <Image
-                src="/assets/logo/ChatGPT%20Image%20Nov%208,%202025,%2010_47_18%20PM.png"
+                src="/assets/logo/white-logo.png"
                 alt="Hirebit logo"
                 width={120}
                 height={120}

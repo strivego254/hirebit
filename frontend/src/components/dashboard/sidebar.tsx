@@ -74,8 +74,8 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
 
   const logoSrc =
     resolvedTheme === 'light'
-      ? '/assets/logo/black_logo.png'
-      : '/assets/logo/ChatGPT%20Image%20Nov%208,%202025,%2010_47_18%20PM.png'
+      ? '/assets/logo/black-logo.png'
+      : '/assets/logo/white-logo.png'
 
   return (
     <motion.div

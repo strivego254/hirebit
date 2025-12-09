@@ -41,7 +41,7 @@ export function Navbar() {
             <span className="sr-only">HR AI Agent</span>
             <div className="flex items-center space-x-2">
               <Image
-                src="/assets/logo/ChatGPT%20Image%20Nov%208,%202025,%2010_47_18%20PM.png"
+                src="/assets/logo/white-logo.png"
                 alt="HR AI Agent"
                 width={112}
                 height={112}
@@ -117,7 +117,7 @@ export function Navbar() {
                 <span className="sr-only">HR AI Agent</span>
                 <div className="flex items-center space-x-2">
                   <Image
-                    src="/assets/logo/ChatGPT%20Image%20Nov%208,%202025,%2010_47_18%20PM.png"
+                    src="/assets/logo/white-logo.png"
                     alt="HR AI Agent"
                     width={112}
                     height={112}
