@@ -1,9 +1,8 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import GlassCard from '@/components/ui/glass-card'
+import { GradientCard } from '@/components/ui/gradient-card'
 import { Card, CardContent } from '@/components/ui/card'
-import { PulseBeamsButton } from '@/components/ui/pulse-beams-button'
 import dynamic from 'next/dynamic'
 import {
   Brain,
@@ -82,7 +81,7 @@ export default function FeaturesPage() {
       <Animated3DShape className="opacity-20" />
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-4 sm:pt-40 sm:pb-24 md:pt-48 md:pb-32">
+      <section className="relative pt-32 pb-8 px-4 sm:pt-40 sm:pb-10 md:pt-48 md:pb-12">
         <div className="container mx-auto max-w-6xl relative z-10">
           <motion.div
             initial={{ opacity: 1, y: 0 }}
@@ -106,20 +105,8 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* Pulse Beams Button Section */}
-      <section className="pt-4 sm:pt-8 pb-8 sm:pb-12 px-4 relative bg-black">
-        <div className="container mx-auto max-w-6xl relative z-10">
-          <div className="flex items-center justify-center">
-            <PulseBeamsButton 
-              text="Get Started" 
-              href="/auth/signup"
-            />
-          </div>
-        </div>
-      </section>
-
       {/* Core Features Section */}
-      <section className="py-20 px-4 relative bg-black">
+      <section className="pt-8 pb-20 px-4 relative bg-black">
         <div className="container mx-auto max-w-6xl relative z-10">
           <motion.div
             initial={{ opacity: 1, y: 0 }}
@@ -138,23 +125,16 @@ export default function FeaturesPage() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-2 gap-3 sm:gap-4 md:gap-8 justify-items-center">
+          <div className="grid grid-cols-2 md:grid-cols-2 gap-3 sm:gap-4 md:gap-8">
             {coreFeatures.map((feature, index) => (
-              <motion.div
+              <GradientCard
                 key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="w-full"
-              >
-                <GlassCard
-                  icon={feature.icon}
-                  title={feature.title}
-                  description={feature.description}
-                  benefits={feature.benefits}
-                  index={index}
-                />
-              </motion.div>
+                icon={feature.icon}
+                title={feature.title}
+                description={feature.description}
+                benefits={feature.benefits}
+                index={index}
+              />
             ))}
           </div>
         </div>

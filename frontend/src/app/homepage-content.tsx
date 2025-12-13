@@ -5,7 +5,8 @@ import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { GradientCard } from '@/components/ui/gradient-card'
 import dynamic from 'next/dynamic'
-import { useRef, Suspense } from 'react'
+import { useRef, Suspense, useState, useEffect } from 'react'
+import { cn } from '@/lib/utils'
 
 // Lazy load heavy components for better performance
 const Animated3DShape = dynamic(() => import('@/components/ui/animated-3d-shape'), {
@@ -61,6 +62,9 @@ import {
 export default function HomePageContent() {
   const router = useRouter()
   const backgroundRef = useRef<HTMLDivElement>(null)
+  const industryScrollRef = useRef<HTMLDivElement>(null)
+  const [activeIndustryIndex, setActiveIndustryIndex] = useState(0)
+  const industryAnimationRef = useRef<number>()
 
   const coreFeatures = [
     {
@@ -159,6 +163,69 @@ export default function HomePageContent() {
     },
   ]
 
+  // Track animation progress for Industry Solutions cards
+  useEffect(() => {
+    const container = industryScrollRef.current;
+    if (!container) return;
+
+    const scrollElement = container.querySelector('.industry-solutions-scroll') as HTMLElement;
+    if (!scrollElement) return;
+
+    // Track animation progress using requestAnimationFrame
+    let startTime = Date.now();
+    const duration = 30000; // 30 seconds (matches CSS animation duration)
+
+    const updateProgress = () => {
+      const elapsed = (Date.now() - startTime) % duration;
+      const progress = elapsed / duration;
+      
+      // Calculate which card should be active based on progress
+      const currentIndex = Math.floor(progress * industrySolutions.length) % industrySolutions.length;
+      setActiveIndustryIndex(currentIndex);
+
+      industryAnimationRef.current = requestAnimationFrame(updateProgress);
+    };
+
+    // Also use IntersectionObserver as a backup to detect which card is most visible
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let maxRatio = 0;
+        let mostVisibleIndex = activeIndustryIndex;
+
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio;
+            const cardIndex = parseInt(entry.target.getAttribute('data-card-index') || '0');
+            mostVisibleIndex = cardIndex % industrySolutions.length;
+          }
+        });
+
+        if (maxRatio > 0.3) {
+          setActiveIndustryIndex(mostVisibleIndex);
+        }
+      },
+      {
+        root: container,
+        rootMargin: '-20% 0px -20% 0px',
+        threshold: [0, 0.3, 0.5, 0.7, 1],
+      }
+    );
+
+    // Observe all cards
+    const cards = container.querySelectorAll('[data-card-index]');
+    cards.forEach((card) => observer.observe(card));
+
+    // Start tracking animation progress
+    updateProgress();
+
+    return () => {
+      observer.disconnect();
+      if (industryAnimationRef.current) {
+        cancelAnimationFrame(industryAnimationRef.current);
+      }
+    };
+  }, [industrySolutions.length]);
+
   return (
     <>
       {/* Animated 3D Background Shape for Content Sections */}
@@ -204,7 +271,7 @@ export default function HomePageContent() {
       </section>
 
       {/* Industry Solutions Section */}
-      <section className="py-20 px-4 relative overflow-hidden bg-black min-h-screen">
+      <section className="pt-20 pb-8 px-4 relative overflow-hidden bg-black">
         <div ref={backgroundRef} className="absolute inset-0 w-full h-full">
           <Suspense fallback={null}>
             <PricingBackground backgroundRef={backgroundRef} />
@@ -229,7 +296,52 @@ export default function HomePageContent() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+          {/* Mobile: Auto-scrolling horizontal container */}
+          <div className="lg:hidden">
+            <div ref={industryScrollRef} className="overflow-hidden">
+              <div className="flex gap-4 industry-solutions-scroll">
+                {/* Duplicate cards for seamless loop */}
+                {[...industrySolutions, ...industrySolutions].map((solution, index) => (
+                  <div 
+                    key={`${solution.title}-${index}`} 
+                    data-card-index={index}
+                    className="flex-shrink-0 w-[85vw] max-w-sm"
+                  >
+                    <Card className="h-full min-h-[280px] rounded-2xl md:rounded-[24px] lg:rounded-[36px] hover:shadow-2xl transition-all duration-500 group bg-neutral-900/80 backdrop-blur-sm border border-neutral-800/50 hover:bg-neutral-900/90 hover:scale-105 relative overflow-hidden hover:border-[#3ca2fa]/50">
+                      <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-br from-[#3ca2fa]/20 to-blue-600/20 rounded-full blur-xl"></div>
+                      <CardContent className="p-3 sm:p-4 md:p-6 relative z-10">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-r from-[#3ca2fa] to-blue-600 flex items-center justify-center mb-2 sm:mb-3 md:mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-[#3ca2fa]/30">
+                          <solution.icon className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
+                        </div>
+                        <h3 className="text-[15px] sm:text-[20px] md:text-[24px] font-semibold mb-1 sm:mb-2 text-white leading-tight">{solution.title}</h3>
+                        <p className="text-xs sm:text-sm md:text-base text-gray-300 mb-2 sm:mb-3 leading-snug line-clamp-3">{solution.description}</p>
+                        <div className="text-[9px] sm:text-xs md:text-sm font-medium text-[#3ca2fa] bg-[#3ca2fa]/10 px-2 py-0.5 sm:px-2.5 sm:py-1 md:px-3 md:py-1 rounded-full inline-block border border-[#3ca2fa]/20 mt-4 sm:mt-6">{solution.metrics}</div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Progress Dots */}
+            <div className="flex justify-center items-center gap-2 mt-6">
+              {industrySolutions.map((_, index) => (
+                <button
+                  key={index}
+                  className={cn(
+                    "transition-all duration-300 rounded-full",
+                    activeIndustryIndex === index
+                      ? "w-8 h-2 bg-[#3ca2fa]"
+                      : "w-2 h-2 bg-white/30 hover:bg-white/50"
+                  )}
+                  aria-label={`Go to card ${index + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop: Grid layout */}
+          <div className="hidden lg:grid grid-cols-3 gap-6">
             {industrySolutions.map((solution, index) => (
               <motion.div
                 key={solution.title}
@@ -238,7 +350,7 @@ export default function HomePageContent() {
                 transition={{ type: 'tween', duration: 0.4, delay: index * 0.1, ease: 'easeOut' }}
                 className="gpu-accelerated"
               >
-                <Card className="h-full hover:shadow-2xl transition-all duration-500 group bg-neutral-900/80 backdrop-blur-sm border border-neutral-800/50 hover:bg-neutral-900/90 hover:scale-105 relative overflow-hidden hover:border-[#3ca2fa]/50">
+                <Card className="h-full rounded-2xl md:rounded-[24px] lg:rounded-[36px] hover:shadow-2xl transition-all duration-500 group bg-neutral-900/80 backdrop-blur-sm border border-neutral-800/50 hover:bg-neutral-900/90 hover:scale-105 relative overflow-hidden hover:border-[#3ca2fa]/50">
                   <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-br from-[#3ca2fa]/20 to-blue-600/20 rounded-full blur-xl"></div>
                   <CardContent className="p-3 sm:p-4 md:p-6 relative z-10">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-r from-[#3ca2fa] to-blue-600 flex items-center justify-center mb-2 sm:mb-3 md:mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-[#3ca2fa]/30">
@@ -246,13 +358,37 @@ export default function HomePageContent() {
                     </div>
                     <h3 className="text-[15px] sm:text-[20px] md:text-[24px] font-semibold mb-1 sm:mb-2 text-white leading-tight">{solution.title}</h3>
                     <p className="text-xs sm:text-sm md:text-base text-gray-300 mb-2 sm:mb-3 leading-snug line-clamp-3">{solution.description}</p>
-                    <div className="text-[9px] sm:text-xs md:text-sm font-medium text-[#3ca2fa] bg-[#3ca2fa]/10 px-2 py-0.5 sm:px-2.5 sm:py-1 md:px-3 md:py-1 rounded-full inline-block border border-[#3ca2fa]/20">{solution.metrics}</div>
+                    <div className="text-[9px] sm:text-xs md:text-sm font-medium text-[#3ca2fa] bg-[#3ca2fa]/10 px-2 py-0.5 sm:px-2.5 sm:py-1 md:px-3 md:py-1 rounded-full inline-block border border-[#3ca2fa]/20 mt-4 sm:mt-6">{solution.metrics}</div>
                   </CardContent>
                 </Card>
               </motion.div>
             ))}
           </div>
         </div>
+
+        {/* Add CSS animation for auto-scroll */}
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes industry-solutions-scroll {
+              0% {
+                transform: translateX(0);
+              }
+              100% {
+                transform: translateX(calc(-50% - 1rem));
+              }
+            }
+            
+            .industry-solutions-scroll {
+              animation: industry-solutions-scroll 30s linear infinite;
+              display: flex;
+              width: fit-content;
+            }
+            
+            .industry-solutions-scroll:hover {
+              animation-play-state: paused;
+            }
+          `
+        }} />
       </section>
 
       {/* Business Benefits Section - Modern Cards */}
