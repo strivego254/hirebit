@@ -8,6 +8,7 @@ interface AuthUser {
   created_at?: string
   role?: string
   name?: string | null
+  username?: string | null
   companyRole?: string | null
   hasCompany?: boolean
   companyId?: string
@@ -92,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const userData = await resp.json()
             setUser({
               name: userData.name || null,
+              username: userData.username || null,
               email: userData.email,
               id: userData.id || userData.user_id,
               created_at: userData.created_at,

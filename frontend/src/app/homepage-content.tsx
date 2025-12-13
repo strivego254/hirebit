@@ -30,9 +30,9 @@ const HowItWorksCards = dynamic(() => import('@/components/ui/how-it-works-cards
   ),
 })
 
-const StackingCardComponent = dynamic(() => import('@/components/ui/stacking-card'), {
+const ModernBusinessImpact = dynamic(() => import('@/components/ui/modern-business-impact'), {
   ssr: false,
-  loading: () => <div className="min-h-screen bg-slate-950 animate-pulse" />,
+  loading: () => <div className="min-h-screen bg-black animate-pulse" />,
 })
 
 const PricingBackground = dynamic(() => import('@/components/ui/pricing-background'), {
@@ -255,19 +255,11 @@ export default function HomePageContent() {
         </div>
       </section>
 
-      {/* Business Benefits Section - Stacking Cards */}
-      <div className="hidden md:block">
-        <Suspense fallback={<div className="min-h-screen bg-slate-950 animate-pulse" />}>
-          <StackingCardComponent
+      {/* Business Benefits Section - Modern Cards */}
+      <div>
+        <Suspense fallback={<div className="min-h-screen bg-black animate-pulse" />}>
+          <ModernBusinessImpact
           projects={businessBenefits.map((benefit) => {
-            // Map colors by title as specified
-            const colorMap: Record<string, string> = {
-              'Reduce Hiring Costs': '#2D2DDD',
-              'Faster Time-to-Hire': '#06B6D4',
-              'Higher Quality Hires': '#2D2DDD',
-              'Compliance & Security': '#06B6D4',
-            };
-            
             // Select appropriate images for each benefit
             const imageMap: Record<string, string> = {
               'Reduce Hiring Costs': '/assets/images/Reduce Cost Image.jpg',
@@ -280,7 +272,7 @@ export default function HomePageContent() {
               title: benefit.title,
               description: benefit.description,
               link: imageMap[benefit.title] || '/assets/images/Reduce Cost Image.jpg',
-              color: colorMap[benefit.title] || '#2D2DDD',
+              color: '#2D2DDD',
               value: benefit.value,
               icon: benefit.icon,
             };
