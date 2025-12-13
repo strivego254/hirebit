@@ -45,17 +45,17 @@ export const GradientCard = memo(({ icon: Icon, title, description, benefits, in
         {/* Main blue gradient background - lighter top-left to darker bottom-right */}
         <div 
           className="absolute inset-0"
-          style={{
+        style={{
             background: "linear-gradient(135deg, rgba(45, 45, 221, 0.4) 0%, rgba(45, 45, 221, 0.3) 50%, rgba(45, 45, 221, 0.15) 100%)"
-          }}
-        />
+        }}
+      />
         {/* Radial glow at top-left for depth */}
         <div 
           className="absolute inset-0"
-          style={{
+        style={{
             background: "radial-gradient(ellipse at top left, rgba(45, 45, 221, 0.5), transparent 60%)"
-          }}
-        />
+        }}
+      />
         {/* Subtle overlay for more depth */}
         <div 
           className="absolute inset-0 opacity-50"
@@ -94,7 +94,7 @@ export const GradientCard = memo(({ icon: Icon, title, description, benefits, in
               className="flex items-start gap-3"
               initial={{ opacity: 0.8 }}
               whileHover={{ x: 4 }}
-            >
+              >
               <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
               <span className="text-sm text-white font-figtree font-light">
                 {benefit}

@@ -171,17 +171,22 @@ function ShaderPlane() {
   useFrame((state) => {
     if (!materialRef.current) return;
     
-    // Use elapsedTime for smooth continuous animation
-    // This ensures animation continues smoothly even if frame rate varies
-    const currentTime = state.clock.elapsedTime;
-    
-    // Ensure continuous time progression - use clock's elapsedTime directly
-    // This is already smoothed by React Three Fiber's clock
-    materialRef.current.iTime = currentTime;
-    
-    const { width, height } = state.size;
-    if (materialRef.current.iResolution) {
-      materialRef.current.iResolution.set(width, height);
+    try {
+      // Use elapsedTime for smooth continuous animation
+      // This ensures animation continues smoothly even if frame rate varies
+      const currentTime = state.clock.elapsedTime;
+      
+      // Ensure continuous time progression - use clock's elapsedTime directly
+      // This is already smoothed by React Three Fiber's clock
+      materialRef.current.iTime = currentTime;
+      
+      const { width, height } = state.size;
+      if (materialRef.current.iResolution) {
+        materialRef.current.iResolution.set(width, height);
+      }
+    } catch (error) {
+      // Silently handle errors if Canvas context is not available
+      console.warn('ShaderPlane: Canvas context not available', error);
     }
   });
 

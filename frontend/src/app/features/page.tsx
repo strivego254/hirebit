@@ -129,12 +129,12 @@ export default function FeaturesPage() {
             {coreFeatures.map((feature, index) => (
               <GradientCard
                 key={feature.title}
-                icon={feature.icon}
-                title={feature.title}
-                description={feature.description}
-                benefits={feature.benefits}
-                index={index}
-              />
+                  icon={feature.icon}
+                  title={feature.title}
+                  description={feature.description}
+                  benefits={feature.benefits}
+                  index={index}
+                />
             ))}
           </div>
         </div>

@@ -9,7 +9,6 @@ interface AuthUser {
   created_at?: string
   role?: string
   name?: string | null
-  username?: string | null
   companyRole?: string | null
   hasCompany?: boolean
   companyId?: string

@@ -4,7 +4,17 @@ import { useRouter } from 'next/navigation'
 import { Suspense, useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
-import NeuralNetworkHero from '@/components/ui/neural-network-hero'
+const NeuralNetworkHero = dynamic(() => import('@/components/ui/neural-network-hero'), {
+  ssr: false,
+  loading: () => (
+    <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="text-center text-white">
+        <h1 className="text-4xl font-bold mb-4">Transform Your Hiring Process with AI Precision</h1>
+        <p className="text-gray-400 mb-8">Transform your hiring process with intelligent automation, advanced analytics, and bias-free candidate screening.</p>
+      </div>
+    </div>
+  ),
+})
 import VideoSection from '@/components/ui/video-section'
 
 // Lazy load heavy components below the fold for better initial load performance
